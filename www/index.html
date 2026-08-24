@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#1976d2">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Controle">
+    <title>Controle do Negócio</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="img/logo.png">
+    <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+    <link rel="icon" type="image/png" href="img/logo.png">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="cordova.js"></script>
+</head>
+
+<body>
+
+    <header style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="btnOpenDrawer" class="header-btn-mask" onclick="openDrawer()" title="Menu de Opções">☰</button>
+            <span style="font-weight: bold; font-size: 16px;">📊 Controle do Negócio</span>
+        </div>
+        <button id="btnMask" class="header-btn-mask" onclick="toggleMaskValues()"
+            title="Ocultar/Exibir Valores">👁️</button>
+    </header>
+
+    <!-- Menu Lateral (Drawer) -->
+    <div id="drawerOverlay" class="drawer-overlay hidden" onclick="closeDrawer()"></div>
+    <div id="sideDrawer" class="side-drawer">
+        <div class="drawer-header">
+            <span style="font-size: 16px; font-weight: bold; color: #1976d2;">⚙️ Opções & Ferramentas</span>
+            <button type="button" class="btn-close-modal" onclick="closeDrawer()">✕</button>
+        </div>
+        <div class="drawer-menu">
+            <div class="drawer-item" onclick="openClientsModal(); closeDrawer();">
+                <span class="drawer-icon">👥</span>
+                <div class="drawer-text">
+                    <b>Histórico de Clientes</b>
+                    <small>Faturamento e atendimentos por cliente</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="openNotesModal(); closeDrawer();">
+                <span class="drawer-icon">📝</span>
+                <div class="drawer-text">
+                    <b>Bloco de Notas & Tarefas</b>
+                    <small>Checklist com alarme e notificações</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="openCaixaModal(); closeDrawer();">
+                <span class="drawer-icon">💼</span>
+                <div class="drawer-text">
+                    <b>Metas de Caixa & Giro</b>
+                    <small>Salário e capital de reserva</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="openAnnualModal(); closeDrawer();">
+                <span class="drawer-icon">📊</span>
+                <div class="drawer-text">
+                    <b>Painel Anual & Limite MEI</b>
+                    <small>Fechamento do ano e teto de faturamento</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="openDecimoModal(); closeDrawer();">
+                <span class="drawer-icon">🎄</span>
+                <div class="drawer-text">
+                    <b>13º Salário & Férias</b>
+                    <small>Reserva de fim de ano ou aporte mensal</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="openInventoryModal(); closeDrawer();">
+                <span class="drawer-icon">📦</span>
+                <div class="drawer-text">
+                    <b>Controle de Estoque</b>
+                    <small>Produtos, materiais, peças e reposição</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="openProfileModal(); closeDrawer();">
+                <span class="drawer-icon">🏢</span>
+                <div class="drawer-text">
+                    <b>Dados da Empresa & Perfil</b>
+                    <small>Nome fantasia, contato, Pix e PDF</small>
+                </div>
+            </div>
+            <div id="drawerInstallPwa" class="drawer-item hidden" onclick="instalarPwaApp(); closeDrawer();"
+                style="background: #eef6ff; border-left: 3px solid #1976d2;">
+                <span class="drawer-icon">📲</span>
+                <div class="drawer-text">
+                    <b style="color: #1976d2;">Instalar Aplicativo</b>
+                    <small style="color: #1565c0;">Adicionar à tela inicial do celular</small>
+                </div>
+            </div>
+            <hr class="drawer-divider">
+            <div class="drawer-item" onclick="exportarBackup(); closeDrawer();">
+                <span class="drawer-icon">📥</span>
+                <div class="drawer-text">
+                    <b>Exportar Backup</b>
+                    <small>Salvar arquivo de segurança</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="document.getElementById('importFileInput').click(); closeDrawer();">
+                <span class="drawer-icon">📤</span>
+                <div class="drawer-text">
+                    <b>Importar Backup</b>
+                    <small>Restaurar arquivo .json</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="desfazerUltimaImportacao()">
+                <span class="drawer-icon">↩️</span>
+                <div class="drawer-text">
+                    <b>Desfazer Importação</b>
+                    <small>Restaurar dados anteriores ao backup</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+
+        <!-- Aviso de Serviços do Dia -->
+        <div id="todayBanner" class="today-banner hidden"></div>
+
+        <!-- Alerta de Lembrete de Backup Externo -->
+        <div id="backupAlertBanner" class="backup-alert-banner hidden"></div>
+
+        <!-- Barra de Filtros -->
+        <div class="filter-bar">
+            <select id="filterMonth" onchange="carregarDados()">
+                <option value="all">📅 Todo o Histórico</option>
+            </select>
+            <input id="searchInput" placeholder="🔍 Buscar cliente/item..." oninput="renderView()">
+        </div>
+
+        <!-- Cards de Resumo -->
+        <div class="cards">
+            <div class="card">
+                <span>Recebido (Pago)</span>
+                <b class="in value-maskable" id="totalIn">R$ 0,00</b>
+            </div>
+            <div class="card">
+                <span>A Receber (Pendente)</span>
+                <b class="pending value-maskable" id="totalPending">R$ 0,00</b>
+            </div>
+            <div class="card">
+                <span>Gastos / Despesas</span>
+                <b class="out value-maskable" id="totalOut">R$ 0,00</b>
+            </div>
+            <div class="card">
+                <span>Lucro Líquido Real</span>
+                <b class="profit value-maskable" id="profit">R$ 0,00</b>
+            </div>
+        </div>
+
+        <!-- Botões Principais -->
+        <div class="buttons-main">
+            <button class="primary" onclick="openServiceForm()">＋ Novo Serviço</button>
+            <button class="danger" onclick="openExpenseForm()">－ Nova Despesa</button>
+        </div>
+
+
+        <!-- Formulário de Serviço -->
+        <!-- Formulário de Serviço -->
+        <section id="formService" class="hidden">
+            <h2 id="serviceFormTitle">🔧 Novo Serviço / Orçamento</h2>
+            <input type="hidden" id="sEditId">
+
+            <!-- Dados do Cliente -->
+            <div class="row">
+                <input id="sClient" list="clientList" placeholder="Nome do Cliente" oninput="sugerirTelefoneCliente()">
+                <datalist id="clientList"></datalist>
+                <datalist id="inventoryDatalist"></datalist>
+                <input id="sPhone" type="tel" placeholder="WhatsApp / Tel (Opcional)">
+            </div>
+
+            <!-- MANTIDO: sDesc para Detalhes Gerais (Cores, Materiais, etc.) -->
+            <input id="sDesc" placeholder="Detalhes gerais (ex: Cor branca, alumínio reforçado, gesso)">
+
+            <!-- MANTIDO: sNotes para Endereço / Observações -->
+            <input id="sNotes" placeholder="Endereço / Observações adicionais (Opcional)">
+
+            <!-- Seção de Itens Dinâmicos -->
+            <div class="items-section">
+                <div class="items-header">
+                    <h3>📐 Produtos, Medidas e Valores</h3>
+                    <button type="button" class="btn-mini primary" onclick="addServiceItem()">＋ Adicionar Item</button>
+                </div>
+                <div id="serviceItemsList">
+                    <!-- Linhas dinâmicas inseridas aqui -->
+                </div>
+            </div>
+
+            <div class="row" style="margin-top: 12px;">
+                <div>
+                    <label style="font-size: 12px; color: #555; font-weight: bold;">Mão de Obra / Serviço (R$)</label>
+                    <input id="sLabor" type="number" step="0.01" placeholder="Ex: 80,00"
+                        oninput="recalcularTotaisServico(false)">
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #555; font-weight: bold;">Valor Total Geral (R$)</label>
+                    <input id="sValue" type="number" step="0.01" placeholder="Total (R$)">
+                </div>
+            </div>
+
+            <div class="row">
+                <div style="grid-column: span 2;">
+                    <label style="font-size: 12px; color: #555; font-weight: bold;">Data e Hora</label>
+                    <div style="display: flex; gap: 6px;">
+                        <input id="sDate" type="date" style="flex: 2;">
+                        <input id="sTime" type="time" style="flex: 1;" title="Horário do agendamento">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status e Pagamento -->
+            <div class="row">
+                <select id="sStatus" onchange="togglePayField()">
+                    <option value="Orçamento">Orçamento</option>
+                    <option value="Agendado">Agendado</option>
+                    <option value="Realizado">Realizado</option>
+                    <option value="Pago">Pago (Recebido)</option>
+                </select>
+                <select id="sPay" class="hidden">
+                    <option value="Pix">Pix</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Cartão">Cartão</option>
+                    <option value="Transferência">Transferência</option>
+                </select>
+            </div>
+
+            <div class="row form-actions">
+                <button class="secondary" onclick="closeAllForms()">Cancelar</button>
+                <button class="primary" onclick="saveService()">Salvar Serviço</button>
+            </div>
+        </section>
+
+        <!-- Formulário de Despesa -->
+        <section id="formExpense" class="hidden">
+            <h2 id="expenseFormTitle">💸 Novo Gasto / Despesa</h2>
+            <input type="hidden" id="gEditId">
+            <input id="gDesc" placeholder="Descrição (ex: Material, Combustível)">
+            <div class="row">
+                <input id="gDate" type="date">
+                <input id="gValue" type="number" step="0.01" placeholder="Valor (R$)">
+            </div>
+            <select id="gCat">
+                <option>Material</option>
+                <option>Combustível</option>
+                <option>Ferramentas</option>
+                <option>Publicidade</option>
+                <option>Alimentação</option>
+                <option>13º Salário / Férias</option>
+                <option>Outros</option>
+            </select>
+            <div class="row form-actions">
+                <button class="secondary" onclick="closeAllForms()">Cancelar</button>
+                <button class="danger" onclick="saveExpense()">Salvar Gasto</button>
+            </div>
+        </section>
+
+        <!-- Abas de Listagem -->
+        <section>
+            <div class="tabs">
+                <button class="secondary active" id="tab-services" onclick="switchTab('services')">Serviços</button>
+                <button class="secondary" id="tab-quotes" onclick="switchTab('quotes')">Orçamentos</button>
+                <button class="secondary" id="tab-expenses" onclick="switchTab('expenses')">Gastos</button>
+                <button class="secondary" id="tab-all" onclick="switchTab('all')">Extrato</button>
+            </div>
+            <div id="tabContent"></div>
+        </section>
+
+
+        <!-- Modal de Atualização de Status e Data -->
+        <div id="modalStatus" class="modal-overlay hidden">
+            <div class="modal-card">
+                <h3 id="modalStatusTitle">Atualizar Status</h3>
+                <input type="hidden" id="modalStatusServiceId">
+                <input type="hidden" id="modalStatusNext">
+
+                <div class="field-group" style="margin: 10px 0;">
+                    <label id="modalStatusDateLabel">Data:</label>
+                    <input id="modalStatusDate" type="date">
+                </div>
+
+                <div id="modalStatusPayGroup" class="field-group hidden" style="margin: 10px 0;">
+                    <label>Forma de Pagamento:</label>
+                    <select id="modalStatusPay">
+                        <option value="Pix">Pix</option>
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="Cartão">Cartão</option>
+                        <option value="Transferência">Transferência</option>
+                    </select>
+                </div>
+
+                <div class="row form-actions" style="margin-top: 14px;">
+                    <button type="button" class="secondary" onclick="closeStatusModal()">Cancelar</button>
+                    <button type="button" class="primary" onclick="confirmStatusChange()">Confirmar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Configuração de Fundo de Caixa e Capital de Giro -->
+        <div id="modalCaixa" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0;">💼 Metas Financeiras</h3>
+                    <span id="labelCaixaMonth"
+                        style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Mês
+                        Atual</span>
+                </div>
+
+                <div class="field-group" style="margin: 10px 0;">
+                    <label>💼 Meta 1 - Salário deste Mês (Pró-labore R$):</label>
+                    <small
+                        style="color: #666; font-size: 11px; display: block; margin-top: -2px; margin-bottom: 4px;">Sua
+                        retirada pessoal planejada para este mês.</small>
+                    <input id="inputFundoCaixa" type="number" step="0.01" placeholder="Ex: 3000,00">
+                </div>
+
+                <div class="field-group" style="margin: 14px 0 10px 0;">
+                    <label>🛡️ Meta 2 - Capital de Giro Total da Empresa (R$):</label>
+                    <small
+                        style="color: #666; font-size: 11px; display: block; margin-top: -2px; margin-bottom: 4px;">Teto
+                        da reserva acumulada para manter a empresa segura.</small>
+                    <input id="inputCapitalGiro" type="number" step="0.01" placeholder="Ex: 10000,00">
+                </div>
+
+                <div class="row form-actions" style="margin-top: 14px;">
+                    <button type="button" class="secondary" onclick="closeCaixaModal()">Cancelar</button>
+                    <button type="button" class="primary" onclick="saveCaixaConfig()">Salvar Metas</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Histórico de Clientes -->
+        <div id="modalClients" class="modal-overlay hidden">
+            <div class="modal-card modal-card-large"
+                style="max-height: 90vh; display: flex; flex-direction: column; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 16px; color: #1976d2;">👥 Histórico de Clientes</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeClientsModal()">✕</button>
+                </div>
+                <input id="clientSearchInput" placeholder="🔍 Buscar cliente por nome ou telefone..."
+                    oninput="renderClientsList()" style="margin-bottom: 8px;">
+                <div class="client-sort-bar" style="margin-bottom: 10px;">
+                    <span><b>Ordenar por:</b></span>
+                    <select id="clientSortSelect" onchange="switchClientSort(this.value)">
+                        <option value="spent">💰 Mais Gastaram</option>
+                        <option value="alpha">🔤 Ordem Alfabética (A-Z)</option>
+                        <option value="recent">🕒 Mais Recentes</option>
+                        <option value="oldest">📅 Mais Antigos</option>
+                    </select>
+                </div>
+                <div id="modalClientsContent" style="flex: 1; overflow-y: auto; padding-right: 2px;">
+                    <!-- Lista dinâmica de cards de clientes -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal do Bloco de Notas & Tarefas -->
+        <div id="modalNotes" class="modal-overlay hidden">
+            <div class="modal-card modal-card-large"
+                style="max-height: 90vh; display: flex; flex-direction: column; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 16px; color: #1976d2;">📝 Bloco de Notas & Tarefas</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeNotesModal()">✕</button>
+                </div>
+
+                <!-- Formulário de Criação de Nota -->
+                <div class="note-form-box">
+                    <input id="noteTextInput" placeholder="✍️ Digite sua tarefa ou anotação..."
+                        style="margin-bottom: 8px;">
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                        <input id="noteDateInput" type="date" style="flex: 2;" title="Data do lembrete (Opcional)">
+                        <input id="noteTimeInput" type="time" style="flex: 1;" title="Horário do lembrete (Opcional)">
+                    </div>
+                    <button type="button" class="primary"
+                        style="width: 100%; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 8px;"
+                        onclick="salvarNovaNota()">＋ Adicionar Lembrete / Nota</button>
+                </div>
+
+                <!-- Lista de Notas -->
+                <div id="notesListContainer" style="flex: 1; overflow-y: auto; padding-right: 2px; margin-top: 10px;">
+                    <!-- Itens inseridos dinamicamente aqui -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Painel Anual e Termômetro do MEI -->
+        <div id="modalAnnual" class="modal-overlay hidden">
+            <div class="modal-card modal-card-large"
+                style="max-height: 90vh; display: flex; flex-direction: column; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h3 style="margin: 0;">📊 Fechamento Anual</h3>
+                        <select id="annualYearSelect" onchange="renderAnnualReport(this.value)"
+                            style="padding: 4px 8px; font-weight: bold; border-radius: 6px; font-size: 13px;"></select>
+                    </div>
+                    <button type="button" class="btn-close-modal" onclick="closeAnnualModal()">✕</button>
+                </div>
+
+                <div id="annualReportContent" style="flex: 1; overflow-y: auto; padding-right: 2px;">
+                    <!-- Conteúdo renderizado dinamicamente por annual.js -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de 13º Salário e Reserva de Fim de Ano -->
+        <div id="modalDecimo" class="modal-overlay hidden">
+            <div class="modal-card modal-card-large"
+                style="max-height: 90vh; display: flex; flex-direction: column; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; color: #2e7d32;">🎄 13º Salário & Férias</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeDecimoModal()">✕</button>
+                </div>
+
+                <div style="flex: 1; overflow-y: auto; padding-right: 2px;">
+                    <!-- Configuração da Meta e Modo -->
+                    <div
+                        style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                        <label
+                            style="font-weight: bold; font-size: 13px; color: #333; display: block; margin-bottom: 8px;">
+                            Como você deseja acumular seu 13º Salário?
+                        </label>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                            <label class="radio-option">
+                                <input type="radio" name="modoDecimoRadio" id="radioModoGastos" value="aporte_gastos"
+                                    checked onchange="toggleModoDecimoInputs(this.value)">
+                                <div>
+                                    <b>Aporte Real nos Gastos</b> <small
+                                        style="color: #2e7d32; font-weight: bold;">(Recomendado)</small>
+                                    <span style="display: block; font-size: 11px; color: #666;">Lança como despesa no
+                                        mês e o app soma automaticamente no 13º.</span>
+                                </div>
+                            </label>
+
+                            <label class="radio-option">
+                                <input type="radio" name="modoDecimoRadio" id="radioModoAporte" value="aporte_mensal"
+                                    onchange="toggleModoDecimoInputs(this.value)">
+                                <div>
+                                    <b>Aporte Fixo Automático</b>
+                                    <span style="display: block; font-size: 11px; color: #666;">Calcula a reserva
+                                        proporcionalmente aos meses decorridos.</span>
+                                </div>
+                            </label>
+
+                            <label class="radio-option">
+                                <input type="radio" name="modoDecimoRadio" id="radioModoGiro" value="excedente_giro"
+                                    onchange="toggleModoDecimoInputs(this.value)">
+                                <div>
+                                    <b>Excedente do Capital de Giro</b>
+                                    <span style="display: block; font-size: 11px; color: #666;">Aloca somente o que
+                                        ultrapassar o teto de segurança da empresa.</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 130px;">
+                                <label style="font-size: 11.5px; color: #555; display: block; margin-bottom: 2px;">Meta
+                                    Total do Ano (R$):</label>
+                                <input id="inputMetaDecimo" type="number" step="0.01" placeholder="Ex: 3000,00"
+                                    style="width: 100%; margin: 0; font-size: 13.5px; font-weight: bold;"
+                                    oninput="if(this.value){ document.getElementById('inputAporteMensalDecimo').value = (parseFloat(this.value)/12).toFixed(2); }">
+                            </div>
+                            <div id="boxAporteMensalField" style="flex: 1; min-width: 130px;">
+                                <label style="font-size: 11.5px; color: #555; display: block; margin-bottom: 2px;">Meta
+                                    / Aporte por Mês (R$):</label>
+                                <input id="inputAporteMensalDecimo" type="number" step="0.01" placeholder="Ex: 250,00"
+                                    style="width: 100%; margin: 0; font-size: 13.5px; font-weight: bold;"
+                                    oninput="if(this.value){ document.getElementById('inputMetaDecimo').value = (parseFloat(this.value)*12).toFixed(2); }">
+                            </div>
+                        </div>
+
+                        <button type="button" class="primary"
+                            style="width: 100%; margin-top: 10px; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 6px;"
+                            onclick="saveDecimoConfig()">Salvar Configurações</button>
+                    </div>
+
+                    <!-- Conteúdo Dinâmico (Barra, Progresso, Origem do Dinheiro) -->
+                    <div id="decimoReportContainer">
+                        <!-- Preenchido via decimo.js -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Gerenciamento de Estoque -->
+        <div id="modalInventory" class="modal-overlay hidden">
+            <div class="modal-card modal-card-large"
+                style="max-height: 90vh; display: flex; flex-direction: column; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h3 style="margin: 0; color: #1976d2;">📦 Controle de Estoque</h3>
+                    </div>
+                    <button type="button" class="btn-close-modal" onclick="closeInventoryModal()">✕</button>
+                </div>
+
+                <!-- Resumo Rápido do Estoque -->
+                <div id="inventorySummaryHeader"></div>
+
+                <!-- Barra de Busca, Filtro e Botão Novo -->
+                <div style="display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;">
+                    <input id="inventorySearchInput" type="text" placeholder="🔍 Buscar material, cor, medida..."
+                        style="flex: 2; min-width: 140px; margin: 0;" oninput="renderInventoryList()">
+                    <select id="inventoryCatFilter" style="flex: 1.5; min-width: 130px; margin: 0; font-size: 12px;"
+                        onchange="renderInventoryList()"></select>
+                    <button type="button" class="primary"
+                        style="padding: 0 12px; font-size: 13px; font-weight: bold; border-radius: 6px; white-space: nowrap;"
+                        onclick="openInventoryForm()">＋ Novo</button>
+                </div>
+
+                <!-- Lista de Itens do Estoque -->
+                <div id="inventoryListContainer" style="flex: 1; overflow-y: auto; padding-right: 2px;">
+                    <!-- Preenchido via inventory.js -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Formulário de Item do Estoque -->
+        <div id="modalInventoryForm" class="modal-overlay hidden" style="z-index: 1100;">
+            <div class="modal-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 id="modalInventoryFormTitle" style="margin: 0;">＋ Novo Item no Estoque</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeInventoryForm()">✕</button>
+                </div>
+
+                <input type="hidden" id="invItemId">
+
+                <div class="field-group" style="margin-bottom: 10px;">
+                    <label>Nome do Produto / Material: <span style="color: #d32f2f;">*</span></label>
+                    <input id="invItemName" placeholder="Ex: Fita LED, Perfil de Alumínio, Tinta...">
+                </div>
+
+                <div class="field-group" style="margin-bottom: 10px;">
+                    <label>Categoria (Opcional):</label>
+                    <input id="invItemCategory" placeholder="Ex: Elétrica, Ferragens, Insumos...">
+                </div>
+
+                <div class="field-group" style="margin-bottom: 10px;">
+                    <label>Especificações / Cor / Medidas (Opcional):</label>
+                    <input id="invItemSpecs" placeholder="Ex: Cor Branco Quente, 5m, 12V">
+                </div>
+
+                <div class="row" style="gap: 8px; margin-bottom: 10px;">
+                    <div style="flex: 1.5;">
+                        <label id="lblInvQty"
+                            style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Quantidade em
+                            Estoque (un):</label>
+                        <input id="invItemQty" type="number" step="0.01" placeholder="0" style="margin: 0;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label
+                            style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Unidade:</label>
+                        <select id="invItemUnit" style="margin: 0;" onchange="updateInventoryUnitLabels(this.value)">
+                            <option value="un">un (Unidades)</option>
+                            <option value="m">m (Metros)</option>
+                            <option value="cm">cm (Centímetros)</option>
+                            <option value="mm">mm (Milímetros)</option>
+                            <option value="m²">m² (Metro quadrado)</option>
+                            <option value="m³">m³ (Metro cúbico)</option>
+                            <option value="kg">kg (Quilos)</option>
+                            <option value="g">g (Gramas)</option>
+                            <option value="L">L (Litros)</option>
+                            <option value="ml">ml (Mililitros)</option>
+                            <option value="pct">pct (Pacote)</option>
+                            <option value="cx">cx (Caixa)</option>
+                            <option value="rolo">rolo (Rolo)</option>
+                            <option value="par">par (Par)</option>
+                            <option value="kit">kit (Kit)</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1.2;">
+                        <label id="lblInvMinQty"
+                            style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Estoque Mínimo
+                            (un):</label>
+                        <input id="invItemMinQty" type="number" step="0.01" placeholder="Alerta" style="margin: 0;"
+                            title="Gera aviso se o saldo for menor ou igual a esse valor">
+                    </div>
+                </div>
+
+                <div class="row" style="gap: 8px; margin-bottom: 14px;">
+                    <div style="flex: 1;">
+                        <label id="lblInvCost"
+                            style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Preço de Custo
+                            (por un):</label>
+                        <input id="invItemCost" type="number" step="0.01" placeholder="0,00" style="margin: 0;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label id="lblInvSale"
+                            style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Preço de Venda
+                            (por un):</label>
+                        <input id="invItemSale" type="number" step="0.01" placeholder="0,00" style="margin: 0;">
+                    </div>
+                </div>
+
+                <div class="row form-actions">
+                    <button type="button" class="secondary" onclick="closeInventoryForm()">Cancelar</button>
+                    <button type="button" class="primary" onclick="saveInventoryItem()">Salvar Item</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Perfil da Empresa / Profissional -->
+        <div id="modalCompanyProfile" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; color: #1976d2;">🏢 Dados da Empresa & Perfil</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeProfileModal()">✕</button>
+                </div>
+
+                <p style="font-size: 12px; color: #666; margin-top: -4px; margin-bottom: 12px;">
+                    Estes dados serão utilizados no cabeçalho e rodapé dos orçamentos e comprovantes em PDF. Todos os
+                    campos são opcionais.
+                </p>
+
+                <div class="field-group" style="margin-bottom: 10px;">
+                    <label>Nome da Empresa / Nome Fantasia:</label>
+                    <input id="profileCompanyName" placeholder="Ex: Silva Refrigeração & Instalações">
+                </div>
+
+                <div class="field-group" style="margin-bottom: 10px;">
+                    <label>Nome do Responsável / Profissional:</label>
+                    <input id="profileOwnerName" placeholder="Ex: Carlos Silva">
+                </div>
+
+                <div class="row" style="gap: 8px; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">WhatsApp /
+                            Telefone:</label>
+                        <input id="profilePhone" type="tel" placeholder="(11) 99999-8888" style="margin: 0;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Cidade /
+                            UF:</label>
+                        <input id="profileCity" placeholder="Ex: São Paulo - SP" style="margin: 0;">
+                    </div>
+                </div>
+
+                <div class="field-group" style="margin-bottom: 14px;">
+                    <label>Chave Pix para Pagamento (Opcional):</label>
+                    <input id="profilePix" placeholder="Ex: CNPJ, Celular, E-mail ou Aleatória">
+                    <small style="color: #888; font-size: 11px;">Se informada, sairá no comprovante em PDF para o
+                        cliente realizar o pagamento.</small>
+                </div>
+
+                <div class="row form-actions">
+                    <button type="button" class="secondary" onclick="closeProfileModal()">Cancelar</button>
+                    <button type="button" class="primary" onclick="saveCompanyProfile()">Salvar Perfil</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botões de Backup -->
+        <input type="file" id="importFileInput" accept=".json,application/json" class="hidden"
+            onchange="handleImportFile(event)">
+        <div class="backup-buttons">
+            <button class="secondary" onclick="exportarBackup()">📥 Exportar backup</button>
+            <button class="secondary" onclick="document.getElementById('importFileInput').click()">📤 Importar
+                backup</button>
+        </div>
+
+        <!-- Toast de Desfazer Exclusão -->
+        <div id="undoToast" class="undo-toast hidden">
+            <span id="undoToastMsg">Registro excluído.</span>
+            <button type="button" id="undoToastBtn" onclick="executarDesfazerExclusao()">Desfazer</button>
+        </div>
+    </div>
+
+    <script src="js/crypto.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/backup.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/calendar.js"></script>
+    <script src="js/notes.js"></script>
+    <script src="js/annual.js"></script>
+    <script src="js/decimo.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/pdf.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/whatsapp.js"></script>
+    <script src="js/forms.js"></script>
+    <script src="js/modals.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Gradiente de Fundo Sóbrio -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0E241B"/>
+      <stop offset="100%" stop-color="#07140E"/>
+    </linearGradient>
+
+    <!-- Gradiente Verde (Controle / Despesas / Fluxo) -->
+    <linearGradient id="barGreen" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+
+    <!-- Gradiente Dourado (Lucro / Carvalho) -->
+    <linearGradient id="barGold" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#FBBF24"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fundo com cantos arredondados (Ícone de App) -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)"/>
+  
+  <!-- Borda sutil de acabamento -->
+  <rect width="504" height="504" x="4" y="4" rx="96" fill="none" stroke="#34D399" stroke-width="2" stroke-opacity="0.2"/>
+
+  <!-- Símbolo: Gráfico de Gestão + Traço Ascendente -->
+  <g id="icone" transform="translate(0, -15)">
+    <!-- Barra 1: Gastos / Base -->
+    <rect x="145" y="220" width="50" height="110" rx="10" fill="url(#barGreen)" opacity="0.8"/>
+
+    <!-- Barra 2: Entradas / Custos -->
+    <rect x="231" y="160" width="50" height="170" rx="10" fill="url(#barGreen)"/>
+
+    <!-- Barra 3: Lucro / Destaque -->
+    <rect x="317" y="100" width="50" height="230" rx="10" fill="url(#barGold)"/>
+
+    <!-- Base conectando o gráfico -->
+    <rect x="130" y="340" width="252" height="6" rx="3" fill="#34D399" opacity="0.3"/>
+
+    <!-- Linha de tendência / Crescimento -->
+    <path d="M 120 280 Q 230 240 374 87" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" opacity="0.95"/>
+    
+    <!-- Seta perfeitamente alinhada ao ângulo da curva (45° ascendente) -->
+    <polygon points="392,69 383,96 365,78" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Tipografia: Nome Carvalho + Subtítulo -->
+  <g id="texto" text-anchor="middle">
+    <!-- Nome Principal -->
+    <text x="256" y="405" 
+          font-family="'Montserrat', 'Segoe UI', Arial, sans-serif" 
+          font-weight="900" 
+          font-size="40" 
+          fill="#FFFFFF" 
+          letter-spacing="7">CARVALHO</text>
+
+    <!-- Subtítulo / Propósito do App -->
+    <text x="256" y="442" 
+          font-family="'Montserrat', 'Segoe UI', Arial, sans-serif" 
+          font-weight="600" 
+          font-size="14" 
+          fill="#FBBF24" 
+          letter-spacing="5">GESTÃO &amp; CONTROLE</text>
+  </g>
+</svg>

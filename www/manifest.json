@@ -1,0 +1,33 @@
+{
+  "name": "Controle do Negócio",
+  "short_name": "Controle",
+  "description": "Gestão financeira, serviços, orçamentos, estoque e fluxo de caixa 100% offline.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1976d2",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "img/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "img/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+
