@@ -559,6 +559,15 @@ function renderClientsList() {
                         <button class="btn-action-lg primary" style="flex: 1; min-height: 38px; padding: 6px 10px; font-size: 13px;" onclick="novoServicoParaCliente('${safeClientName}', '${safePhone}')">＋ Novo Serviço</button>
                     </div>
 
+                    <!-- Ações de Privacidade & LGPD -->
+                    <div style="display: flex; gap: 6px; margin: 6px 0 10px 0; background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px dashed #cbd5e1; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 11px; color: #64748b; font-weight: bold;">Direitos LGPD:</span>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn-mini" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 3px 6px; font-size: 10px; border-radius: 4px;" title="Exportar dados do titular em JSON" onclick="exportarDadosDoTitular('${safeClientName}')">📥 Exportar Dados</button>
+                            <button type="button" class="btn-mini" style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 3px 6px; font-size: 10px; border-radius: 4px;" title="Anonimizar nome e telefone do cliente" onclick="anonimizarDadosCliente('${safeClientName}')">🛡️ Anonimizar</button>
+                        </div>
+                    </div>
+
                     <h4 style="font-size: 13px; margin: 10px 0 6px 0; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px;">Histórico de Atendimentos:</h4>
                     <div class="client-services-list">
                         ${servicosListHtml}

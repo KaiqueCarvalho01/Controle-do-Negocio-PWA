@@ -426,3 +426,42 @@ async function realizarBackupSilencioso() {
         console.warn('[AutoBackup] Falha no backup automático silencioso:', e);
     }
 }
+
+/**
+ * Realiza a limpeza completa e segura de todos os dados do aplicativo (IndexedDB, LocalStorage e Cache).
+ * Atende ao princípio do esquecimento total da LGPD / descarte de aparelho.
+ */
+async function limparTodosOsDadosLocais() {
+    const confirm1 = confirm('⚠️ ATENÇÃO: Deseja realmente APAGAR TODOS OS DADOS deste aplicativo?\n\nIsso removerá serviços, clientes, despesas, notas, configurações e PIN de acesso do seu navegador/aparelho.');
+    if (!confirm1) return;
+
+    const confirm2 = prompt('Para confirmar a exclusão definitiva, digite "APAGAR TUDO" em letras maiúsculas:');
+    if (confirm2 !== 'APAGAR TUDO') {
+        alert('Operação cancelada. Nenhum dado foi apagado.');
+        return;
+    }
+
+    try {
+        // 1. Limpa LocalStorage
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // 2. Limpa IndexedDB
+        if (window.indexedDB) {
+            indexedDB.deleteDatabase('ControleNegocioDB');
+        }
+
+        // 3. Limpa Caches de Service Worker
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+
+        alert('✅ Todos os dados locais foram apagados com sucesso!\nO aplicativo será reiniciado.');
+        window.location.reload();
+    } catch (err) {
+        console.error('Erro ao limpar dados:', err);
+        alert('Erro ao apagar dados: ' + err.message);
+    }
+}
+

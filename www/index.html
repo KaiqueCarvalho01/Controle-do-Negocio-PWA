@@ -116,6 +116,28 @@
                     <small>Restaurar dados anteriores ao backup</small>
                 </div>
             </div>
+            <hr class="drawer-divider">
+            <div class="drawer-item" onclick="openSecurityModal(); closeDrawer();">
+                <span class="drawer-icon">🔒</span>
+                <div class="drawer-text">
+                    <b>Segurança & Bloqueio PIN</b>
+                    <small>Proteger acesso com senha e recuperação</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="openPrivacyModal(); closeDrawer();">
+                <span class="drawer-icon">🛡️</span>
+                <div class="drawer-text">
+                    <b>Privacidade & LGPD</b>
+                    <small>Transparência, dados locais e direitos</small>
+                </div>
+            </div>
+            <div class="drawer-item" onclick="limparTodosOsDadosLocais(); closeDrawer();" style="color: #c62828;">
+                <span class="drawer-icon">🗑️</span>
+                <div class="drawer-text">
+                    <b style="color: #c62828;">Limpar Todos os Dados</b>
+                    <small style="color: #d32f2f;">Reset total do app (troca de aparelho)</small>
+                </div>
+            </div>
         </div>
     </div>
     <div class="container">
@@ -668,9 +690,241 @@
             <span id="undoToastMsg">Registro excluído.</span>
             <button type="button" id="undoToastBtn" onclick="executarDesfazerExclusao()">Desfazer</button>
         </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL DE CONFIGURAÇÃO DE SEGURANÇA & PIN -->
+        <!-- ========================================== -->
+        <div id="modalSecurityPin" class="modal-overlay hidden">
+            <div class="modal-card modal-card-large">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; color: #1976d2;">🔒 Segurança & Bloqueio por PIN</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeSecurityModal()">✕</button>
+                </div>
+                <div>
+                    <div
+                        style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #e2e8f0;">
+                        <div>
+                            <b style="font-size: 14px; color: #1e293b;">Bloqueio com PIN</b>
+                            <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Exigir senha numérica de 4
+                                dígitos ao abrir o app</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="togglePinLock" onchange="onTogglePinSwitch(this.checked)">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
+                    <!-- Status Ativo / Botão Alterar -->
+                    <div id="pinActiveStatusArea" class="hidden"
+                        style="text-align: center; padding: 12px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; margin-bottom: 12px;">
+                        <span style="font-size: 24px;">🛡️</span>
+                        <p style="margin: 6px 0; font-size: 13px; font-weight: bold; color: #166534;">O bloqueio por PIN
+                            está ativo e protegido.</p>
+                        <button type="button" class="secondary" style="margin-top: 8px; font-size: 12px; padding: 6px 12px;"
+                            onclick="showPinSetupForm()">Alterar PIN / Pergunta Secreta</button>
+                    </div>
+
+                    <!-- Formulário de Criação/Alteração de PIN -->
+                    <div id="pinSetupFormArea" class="hidden">
+                        <h4 style="font-size: 13px; margin: 0 0 10px 0; color: #334155;">Cadastrar / Alterar Senha de
+                            Acesso:</h4>
+                        <div class="row" style="gap: 8px;">
+                            <div class="col" style="flex: 1;">
+                                <label style="font-size: 12px; color: #475569; display: block; margin-bottom: 2px;">Novo PIN
+                                    (4 dígitos):</label>
+                                <input type="password" id="inputNewPin" inputmode="numeric" maxlength="4"
+                                    placeholder="Ex: 1234"
+                                    style="text-align: center; font-size: 18px; letter-spacing: 4px;">
+                            </div>
+                            <div class="col" style="flex: 1;">
+                                <label
+                                    style="font-size: 12px; color: #475569; display: block; margin-bottom: 2px;">Confirmar
+                                    PIN:</label>
+                                <input type="password" id="inputConfirmPin" inputmode="numeric" maxlength="4"
+                                    placeholder="Ex: 1234"
+                                    style="text-align: center; font-size: 18px; letter-spacing: 4px;">
+                            </div>
+                        </div>
+
+                        <div
+                            style="margin-top: 12px; background: #fffbeb; padding: 10px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                            <b style="font-size: 12px; color: #92400e;">🔑 Pergunta de Recuperação:</b>
+                            <p style="margin: 2px 0 8px 0; font-size: 11px; color: #b45309;">Necessária para você mesmo
+                                redefinir caso esqueça seu PIN.</p>
+
+                            <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 2px;">Escolha ou
+                                digite uma pergunta:</label>
+                            <select id="selectSecurityQuestion" style="margin-bottom: 8px;"
+                                onchange="onChangeSecurityQuestionSelect(this.value)">
+                                <option value="Qual o nome do seu primeiro animal de estimação?">🐶 Qual o nome do seu primeiro animal de estimação?</option>
+                                <option value="Qual é a sua cidade natal?">🏙️ Qual é a sua cidade natal?</option>
+                                <option value="Qual o nome da sua mãe (ou de solteira)?">👩 Qual o nome da sua mãe (ou de solteira)?</option>
+                                <option value="Qual a sua comida ou prato favorito?">🍕 Qual a sua comida ou prato favorito?</option>
+                                <option value="Qual o modelo do seu primeiro carro/veículo?">🚗 Qual o modelo do seu primeiro carro/veículo?</option>
+                                <option value="Qual o nome do seu melhor amigo de infância?">🤝 Qual o nome do seu melhor amigo de infância?</option>
+                                <option value="custom">✏️ Criar minha própria pergunta personalizada...</option>
+                            </select>
+
+                            <input type="text" id="inputCustomSecurityQuestion" class="hidden"
+                                placeholder="Escreva sua pergunta personalizada aqui..." style="margin-bottom: 8px;">
+
+                            <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 2px;">Sua resposta
+                                secreta:</label>
+                            <input type="text" id="inputSecurityAnswer" placeholder="Digite sua resposta secreta...">
+                        </div>
+
+                        <div class="row form-actions" style="margin-top: 14px;">
+                            <button type="button" class="secondary" onclick="closeSecurityModal()">Cancelar</button>
+                            <button type="button" class="primary" onclick="saveNewPinConfiguration()">Salvar PIN</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL DE REDEFINIÇÃO DE PIN (ESQUECI MEU PIN) -->
+        <!-- ========================================== -->
+        <div id="modalForgotPin" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; color: #1976d2;">🔑 Recuperação de Acesso</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeForgotPinModal()">✕</button>
+                </div>
+                <div>
+                    <p style="font-size: 13px; color: #475569; margin-top: 0;">Responda à sua pergunta secreta para
+                        desbloquear e cadastrar um novo PIN:</p>
+
+                    <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                        <b style="font-size: 12px; color: #334155;">Pergunta Secreta:</b>
+                        <p id="forgotPinQuestionText"
+                            style="margin: 4px 0 0 0; font-size: 13px; color: #1e293b; font-weight: bold;"></p>
+                    </div>
+
+                    <div style="margin-bottom: 12px;">
+                        <label style="font-size: 12px; color: #475569; display: block; margin-bottom: 2px;">Sua
+                            Resposta:</label>
+                        <input type="text" id="inputForgotAnswer" placeholder="Digite a resposta correta...">
+                    </div>
+
+                    <div style="margin-bottom: 14px;">
+                        <label style="font-size: 12px; color: #475569; display: block; margin-bottom: 2px;">Novo PIN (4
+                            dígitos):</label>
+                        <input type="password" id="inputForgotNewPin" inputmode="numeric" maxlength="4"
+                            placeholder="Ex: 5678" style="text-align: center; font-size: 16px; letter-spacing: 3px;">
+                    </div>
+
+                    <div class="row form-actions">
+                        <button type="button" class="secondary" onclick="closeForgotPinModal()">Cancelar</button>
+                        <button type="button" class="primary" onclick="submitResetPinWithAnswer()">Redefinir PIN</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL DE POLÍTICA DE PRIVACIDADE & LGPD -->
+        <!-- ========================================== -->
+        <div id="modalPrivacy" class="modal-overlay hidden">
+            <div class="modal-card modal-card-large" style="max-height: 85vh; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; color: #1976d2;">🛡️ Privacidade & Proteção de Dados (LGPD)</h3>
+                    <button type="button" class="btn-close-modal" onclick="closePrivacyModal()">✕</button>
+                </div>
+                <div style="overflow-y: auto; font-size: 13px; color: #334155; line-height: 1.5; padding-right: 4px;">
+                    <div
+                        style="background: #e0f2fe; padding: 10px; border-radius: 8px; border-left: 4px solid #0284c7; margin-bottom: 14px;">
+                        <b style="color: #0369a1; font-size: 13px;">🔒 Arquitetura Local-First (Privacidade por Design):</b>
+                        <p style="margin: 4px 0 0 0; color: #0c4a6e; font-size: 12px;">Seus dados pertencem 100% a você.
+                            Este aplicativo opera de forma isolada no seu dispositivo e não transmite informações de
+                            clientes ou faturamento para servidores ou nuvens de terceiros.</p>
+                    </div>
+
+                    <h4 style="margin: 12px 0 4px 0; color: #0f172a; font-size: 14px;">1. Dados Coletados & Finalidade</h4>
+                    <p style="margin: 0 0 8px 0;">O aplicativo coleta dados cadastrais (como Nome, Telefone/WhatsApp,
+                        Endereço/Notas de Atendimento e Valores) fornecidos voluntariamente por você, com o único propósito
+                        de:</p>
+                    <ul style="margin: 0 0 10px 18px; padding: 0;">
+                        <li>Emissão de recibos, comprovantes e ordens de serviço em PDF;</li>
+                        <li>Gestão de serviços pendentes, agendamentos e controle financeiro;</li>
+                        <li>Comunicação via WhatsApp iniciada sob seu controle direto.</li>
+                    </ul>
+
+                    <h4 style="margin: 12px 0 4px 0; color: #0f172a; font-size: 14px;">2. Armazenamento e Segurança dos
+                        Dados</h4>
+                    <p style="margin: 0 0 8px 0;">Todos os registros são armazenados no banco de dados interno do navegador
+                        (IndexedDB) e memória local do aparelho. Não utilizamos cookies invasivos de rastreamento ou
+                        telemetria.</p>
+                    <p style="margin: 0 0 8px 0;">O sistema oferece recursos de <b>Criptografia AES-256 GCM</b> para
+                        proteção de backups e <b>Bloqueio de acesso por PIN</b> com hash seguro SHA-256.</p>
+
+                    <h4 style="margin: 12px 0 4px 0; color: #0f172a; font-size: 14px;">3. Direitos dos Titulares (LGPD Art.
+                        18)</h4>
+                    <p style="margin: 0 0 8px 0;">Para garantir a conformidade com a LGPD e o respeito aos seus clientes,
+                        você dispõe das seguintes ferramentas integradas:</p>
+                    <ul style="margin: 0 0 10px 18px; padding: 0;">
+                        <li><b>Portabilidade / Acesso:</b> Opção de exportar a ficha de atendimentos do cliente em formato
+                            JSON estruturado;</li>
+                        <li><b>Anonimização / Esquecimento:</b> Ferramenta para anonimizar o nome e contato de um cliente,
+                            mantendo apenas os totais contábeis do caixa;</li>
+                        <li><b>Exclusão Total:</b> Opção para apagar e resetar definitivamente todos os dados locais do
+                            aplicativo.</li>
+                    </ul>
+
+                    <div style="text-align: center; margin-top: 16px;">
+                        <button type="button" class="primary" style="width: 100%;" onclick="closePrivacyModal()">Entendi e
+                            Concordo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA DE BLOQUEIO POR PIN (LOCK SCREEN) -->
+    <!-- ========================================== -->
+    <div id="appLockScreen" class="lock-screen-overlay hidden">
+        <div class="lock-screen-card">
+            <div class="lock-icon">🔒</div>
+            <h2 style="margin: 8px 0 4px 0; font-size: 20px; color: #1e293b;">Aplicativo Bloqueado</h2>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">Digite seu PIN de 4 dígitos para continuar
+            </p>
+
+            <div class="pin-dots-container">
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+            </div>
+
+            <div id="lockScreenError" class="lock-error-msg hidden"></div>
+
+            <div class="pin-keypad">
+                <button type="button" class="pin-key" onclick="handlePinDigit(1)">1</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(2)">2</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(3)">3</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(4)">4</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(5)">5</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(6)">6</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(7)">7</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(8)">8</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(9)">9</button>
+                <button type="button" class="pin-key pin-key-action" onclick="clearPinInput()" title="Limpar">C</button>
+                <button type="button" class="pin-key" onclick="handlePinDigit(0)">0</button>
+                <button type="button" class="pin-key pin-key-action" onclick="handlePinBackspace()"
+                    title="Apagar">⌫</button>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button type="button" class="btn-link" onclick="openForgotPinModal()"
+                    style="background:none; border:none; color: #1976d2; font-size: 13px; cursor: pointer; text-decoration: underline;">Esqueci
+                    meu PIN</button>
+            </div>
+        </div>
     </div>
 
     <script src="js/crypto.js"></script>
+    <script src="js/privacy.js"></script>
     <script src="js/database.js"></script>
     <script src="js/backup.js"></script>
     <script src="js/notifications.js"></script>

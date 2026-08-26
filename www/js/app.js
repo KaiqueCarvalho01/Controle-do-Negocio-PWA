@@ -47,13 +47,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // Registra o Service Worker para funcionamento 100% offline
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('[Service Worker] Ativo no escopo:', reg.scope))
+            .then(reg => {
+                console.log('[Service Worker] Ativo no escopo:', reg.scope);
+                // Verifica atualizações imediatamente
+                reg.update();
+                // Quando um novo SW for instalado, força ativação e recarrega
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                console.log('[Service Worker] Nova versão ativada, recarregando...');
+                                window.location.reload();
+                            }
+                        });
+                    }
+                });
+            })
             .catch(err => console.warn('[Service Worker] Registro ignorado:', err));
     }
 
     // Inicializa o modo de privacidade (se estava ativo na última sessão)
     if (typeof initMaskValues === 'function') {
         initMaskValues();
+    }
+
+    // Verifica bloqueio por PIN de acesso
+    if (typeof checkAppLockStatus === 'function') {
+        checkAppLockStatus();
     }
 
     // Define a data de hoje por padrão em todos os inputs do tipo date
