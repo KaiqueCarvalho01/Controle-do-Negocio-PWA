@@ -130,10 +130,15 @@ function toggleNotaConcluida(id) {
 
 /**
  * Exclui uma nota da lista e cancela sua notificação se houver.
+ * Vai para a lixeira (retenção de 3 dias) e pode ser restaurada.
  * @param {number} id ID da nota.
  */
 function excluirNota(id) {
     let notes = getNotes();
+    const nota = notes.find(n => n.id === id);
+    if (nota && typeof moverParaLixeira === 'function') {
+        moverParaLixeira('notes', nota);
+    }
     notes = notes.filter(n => n.id !== id);
     setNotes(notes);
     cancelarLembreteNota(id);

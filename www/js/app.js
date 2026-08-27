@@ -86,6 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializa o IndexedDB e carrega os registros
     initDB(() => {
         carregarDados();
+        // Purga da lixeira: remove itens que já passaram dos 3 dias de retenção
+        if (typeof limparLixeiraVencida === 'function') {
+            limparLixeiraVencida();
+        }
         if (window.cordova) {
             document.addEventListener('deviceready', initNotifications, false);
         }
@@ -290,6 +294,12 @@ function executarDesfazerExclusao() {
     if (!ultimoItemExcluido) return;
 
     const { storeName, item } = ultimoItemExcluido;
+    // O item também foi para a lixeira (retenção de 3 dias). Ao desfazer,
+    // remove o envelope da lixeira para não deixar cópia duplicada lá.
+    if (typeof removerItemLixeira === 'function') {
+        removerItemLixeira(storeName + ':' + item.id);
+    }
+
     dbSave(storeName, item, () => {
         const toast = document.getElementById('undoToast');
         if (toast) toast.classList.add('hidden');
@@ -300,7 +310,7 @@ function executarDesfazerExclusao() {
 }
 
 /**
- * Remove um registro do IndexedDB com confirmação e botão de desfazer.
+ * Remove um registro do IndexedDB com confirmação, botão de desfazer e lixeira de 3 dias.
  * @param {string} storeName Nome da store ('services' ou 'expenses').
  * @param {number} id ID do registro.
  * @param {string} itemDesc Descrição para confirmação no alerta.
@@ -313,6 +323,12 @@ function confirmDelete(storeName, id, itemDesc) {
 
         if (storeName === 'services' && itemOriginal?.stockDebited && typeof estornarEstoqueDoServico === 'function') {
             estornarEstoqueDoServico(itemOriginal);
+        }
+
+        // Envia para a lixeira (retenção de 3 dias) ANTES de apagar do banco.
+        // A cópia guarda o estado pós-estorno, então restaurar = re-save equivalente ao desfazer.
+        if (itemOriginal && typeof moverParaLixeira === 'function') {
+            moverParaLixeira(storeName, itemOriginal);
         }
 
         dbDelete(storeName, id, () => {

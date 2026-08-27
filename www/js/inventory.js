@@ -124,11 +124,17 @@ function saveInventoryItem() {
 }
 
 /**
- * Exclui um item do estoque com confirmação.
+ * Exclui um item do estoque com confirmação (vai para a lixeira de 3 dias).
  */
 function deleteInventoryItem(id, name) {
     if (!confirm(`Deseja realmente excluir o item "${name}" do estoque?`)) {
         return;
+    }
+
+    // Envia uma cópia para a lixeira (retenção de 3 dias) antes de apagar do banco
+    const item = (window.appDataRaw?.inventory || []).find(x => x.id === id);
+    if (item && typeof moverParaLixeira === 'function') {
+        moverParaLixeira('inventory', item);
     }
 
     dbDelete('inventory', id, () => {

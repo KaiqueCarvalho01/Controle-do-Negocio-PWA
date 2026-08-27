@@ -131,6 +131,13 @@
                     <small>Transparência, dados locais e direitos</small>
                 </div>
             </div>
+            <div class="drawer-item" onclick="openTrashModal(); closeDrawer();">
+                <span class="drawer-icon">🗃️</span>
+                <div class="drawer-text">
+                    <b>Lixeira (3 dias)</b>
+                    <small>Recuperar itens excluídos</small>
+                </div>
+            </div>
             <div class="drawer-item" onclick="limparTodosOsDadosLocais(); closeDrawer();" style="color: #c62828;">
                 <span class="drawer-icon">🗑️</span>
                 <div class="drawer-text">
@@ -692,6 +699,32 @@
         </div>
 
         <!-- ========================================== -->
+        <!-- MODAL DA LIXEIRA (RETENÇÃO DE 3 DIAS) -->
+        <!-- ========================================== -->
+        <div id="modalTrash" class="modal-overlay hidden" style="z-index: 1200;">
+            <div class="modal-card modal-card-large"
+                style="max-height: 90vh; display: flex; flex-direction: column; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; color: #1976d2;">🗃️ Lixeira (3 dias)</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeTrashModal()">✕</button>
+                </div>
+                <div
+                    style="font-size: 12px; color: #475569; background: #f1f5f9; padding: 8px 10px; border-radius: 6px; margin-bottom: 10px;">
+                    Itens excluídos ficam aqui por <b>3 dias</b> e depois são removidos automaticamente. Use
+                    <b>Restaurar</b> para recuperar algo apagado por engano.
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                    <button type="button" class="danger" style="font-size: 12px; padding: 6px 12px;"
+                        onclick="esvaziarLixeira()">🗑️ Esvaziar Lixeira</button>
+                </div>
+                <!-- Lista de itens da lixeira -->
+                <div id="trashListContainer" style="flex: 1; overflow-y: auto; padding-right: 2px;">
+                    <!-- Preenchido via trash.js -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
         <!-- MODAL DE CONFIGURAÇÃO DE SEGURANÇA & PIN -->
         <!-- ========================================== -->
         <div id="modalSecurityPin" class="modal-overlay hidden">
@@ -926,6 +959,7 @@
     <script src="js/crypto.js"></script>
     <script src="js/privacy.js"></script>
     <script src="js/database.js"></script>
+    <script src="js/trash.js"></script>
     <script src="js/backup.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/calendar.js"></script>

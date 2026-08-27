@@ -22,7 +22,7 @@ Aplicativo **mobile híbrido + PWA** para **autônomos, MEIs e prestadores de se
 | Camada | Tecnologia |
 | :--- | :--- |
 | Frontend | HTML5 + CSS3 + **Vanilla JS** (zero frameworks/bundlers) |
-| Banco de dados | **IndexedDB** (`ControleNegocioDB`, versão **3**) |
+| Banco de dados | **IndexedDB** (`ControleNegocioDB`, versão **4**; store `trash` para lixeira de 3 dias) |
 | Config/estado pequeno | `localStorage` (notas, metas, perfil, PIN, snapshots, timestamps) |
 | Criptografia | Web Crypto API — **AES-256-GCM + PBKDF2** (backup) e **SHA-256 com salt** (PIN/respostas) |
 | Offline | **Service Worker** (`CACHE_NAME 'controle-negocio-v4.0.1'`) |
@@ -72,7 +72,7 @@ Controle-do-Negocio-PWA/
     └── js/                   # 17 scripts globais (sem modules/IIFE)
         ├── crypto.js         # AES-256-GCM + PBKDF2 + hash SHA-256 com salt
         ├── privacy.js        # Lock/PIN, recuperação, LGPD (anonimizar, portabilidade)
-        ├── database.js       # Camada IndexedDB (initDB/dbSave/dbDelete/dbGetAll)
+        ├── database.js       # Camada IndexedDB (initDB/dbSave/dbDelete/dbGetAll/dbTrash*)
         ├── backup.js         # Export/import cripto, snapshot+undo, backup silencioso, wipe
         ├── notifications.js  # Canais, permissão 13+, agendamento de alarmes
         ├── calendar.js       # Agenda nativa (plugin) / fallback Google Calendar
@@ -98,7 +98,7 @@ Por isso os módulos usam guardas defensivas tipo `typeof fn === 'function'` ant
 
 ## 4. Modelos de Dados
 
-### IndexedDB — `ControleNegocioDB` v3 (object stores: `services`, `expenses`, `quickEntries`, `inventory` — todos keyPath `id`)
+### IndexedDB — `ControleNegocioDB` v4 (object stores: `services`, `expenses`, `quickEntries`, `inventory` — keyPath `id`; `trash` — keyPath `tid` = `"<store>:<id>"`)
 
 ```js
 // Serviço / Orçamento (store 'services')
@@ -163,15 +163,18 @@ Por isso os módulos usam guardas defensivas tipo `typeof fn === 'function'` ant
 
 ### `app.js` (orquestrador)
 - Globais: `activeTab` (`services|quotes|expenses|all`), `serviceSubFilter` (`pending|paid`), `allSubFilter` (`list|charts`), `deferredPwaPrompt`.
-- `DOMContentLoaded`: registra SW (`./sw.js`) e força recarga quando nova versão ativa; `initMaskValues()`; `checkAppLockStatus()`; popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); if (cordova) deviceready → initNotifications })`.
+- `DOMContentLoaded`: registra SW (`./sw.js`) e força recarga quando nova versão ativa; `initMaskValues()`; `checkAppLockStatus()`; popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); limparLixeiraVencida(); if (cordova) deviceready → initNotifications })`.
 - `beforeinstallprompt`/`appinstalled` → botão "Instalar Aplicativo" no drawer (`drawerInstallPwa`); `instalarPwaApp()`.
 - **`carregarDados(callback)`** — coração do app: `dbGetAll` → aplica filtro de mês (`filterMonth`, prefixo `YYYY-MM`), grava `window.appDataFiltered` e `window.appDataRaw`, banner de serviços de hoje, banner de backup >3d (`last_manual_export`), dispara backup silencioso se >24h, popula datalists de clientes/estoque, `calcularTotais()` e `renderView()`.
 - `calcularTotais()`: Recebido = soma de `status==='Pago'`; Pendente = `Agendado|Realizado`; Gastos = despesas; Lucro = in − out.
-- Exclusão com desfazer: `confirmDelete(store, id, desc)` (guarda cópia em `ultimoItemExcluido`, estaborna estoque se `stockDebited`, toast 6 s → `executarDesfazerExclusao()`).
+- Exclusão com desfazer + lixeira: `confirmDelete(store, id, desc)` (guarda cópia em `ultimoItemExcluido`, estorna estoque se `stockDebited`, **move cópia pós-estorno para a lixeira** via `moverParaLixeira`, toast 6 s → `executarDesfazerExclusao()` que **remove o envelope da lixeira** e re-salva).
 - `switchTab`/`switchServiceSubFilter`/`switchAllSubFilter`.
 
 ### `database.js`
-API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`, `dbDelete(store, id, cb)`, `dbGetAll(cb)` retorna `{services, expenses, quickEntries, inventory}` (4 stores numa transaction).
+API mínima: `initDB(cb)` (v4 — cria as 4 stores + `trash` na falta), `dbSave(store, item, cb)`, `dbDelete(store, id, cb)`, `dbGetAll(cb)` retorna `{services, expenses, quickEntries, inventory}` (4 stores numa transaction). Lixeira: `dbTrashPut(entry, cb)`, `dbTrashGetAll(cb)`, `dbTrashDelete(tid, cb)`.
+
+### `trash.js`
+Lixeira de **3 dias** (`TRASH_TTL_MS`). `moverParaLixeira(store, record)` — deep-copy `JSON` do registro + `deletedAt` em envelope `{tid, storeName, id, deletedAt, data}` (store `trash`). `restaurarItemLixeira(tid)` — re-save no local original (notas → localStorage; serviços re-agendam notificação; notas re-agendam lembrete) e remove o envelope. `excluirDefinitivamenteItemLixeira(tid)` / `esvaziarLixeira()` — descartam envelopes (efeitos destrutivos já aplicados na exclusão). `limparLixeiraVencida()` — purga >3 dias (boot + ao renderizar). UI: drawer "Lixeira (3 dias)" → `modalTrash` (`openTrashModal`/`closeTrashModal`/`renderTrashList`). Restauração = mesmo equivalente do desfazer via toast (cópia pós-estorno tem `stockDebited=false`).
 
 ### `utils.js`
 - `money(v)` → `R$` via `Intl.NumberFormat('pt-BR', {currency:'BRL'})`.
@@ -312,7 +315,7 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 
 > Todo e qualquer alteração de código **deve** ser retrocompatível com versões anteriores do app. Bases de dados produzidas por versões antigas **nunca** podem quebrar ou perder informação.
 
-- **IndexedDB (`ControleNegocioDB`)**: nunca remover/renomear object stores (`services`, `expenses`, `quickEntries`, `inventory`) nem mudar o `keyPath` (`id`). Para adicionar novos campos, itens novos são opcionais e sempre tratados com fallback (`|| 0`, `|| ''`, `Array.isArray(...)`, `typeof === 'undefined'`). Aumentar `version` do banco só com `onupgradeneeded` que **cria** dados sem destruir os existentes.
+- **IndexedDB (`ControleNegocioDB`)**: nunca remover/renomear object stores (`services`, `expenses`, `quickEntries`, `inventory`, `trash`) nem mudar os `keyPath` (`id`, `tid`). Para adicionar novos campos, itens novos são opcionais e sempre tratados com fallback (`|| 0`, `|| ''`, `Array.isArray(...)`, `typeof === 'undefined'`). Aumentar `version` do banco só com `onupgradeneeded` que **cria** dados sem destruir os existentes.
 - **Registros**: ao salvar/editar, preservar todos os campos legados mesmo que não sejam mais usados na UI (ex.: o objeto `services` deve continuar gravando `quoteDate/scheduledDate/doneDate/paidDate`, `pay`, `labor`, `stockDebited`, `items[]` etc.).
 - **localStorage**: não renomear/remover chaves existentes (`app_notes_data`, `app_caixa_config`, `app_company_profile`, `app_pin_security_data`, `app_mask_values`, `last_manual_export`, `last_auto_backup`, `emergency_backup_snapshot`, `auto_backup_browser_snapshot`). Ao mudar formato, migrar na leitura (ver `getAllCaixaConfigs()` que migra o formato legado plano de `app_caixa_config` para `{default: {...}}`).
 - **Variáveis globais**: manter nomes e assinaturas de funções/variaveis já existentes. Novos recursos **adicionam** funções novas; não renomeiam/removem as atuais, pois o HTML chama via `onclick` inline e módulos dependem dos globals (`window.appDataRaw`, `window.appDataFiltered`, `activeTab`, `serviceSubFilter`, `allSubFilter`, `db`, `today`, etc.).
@@ -329,11 +332,10 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 ## 8. Bugs / Peculiaridades Conhecidas
 
 1. **PDF perdroso**: acentos/emoji removidos, sem paginação, coordenadas fixas (sobreposição em textos longos).
-2. **Sem "lixeira de 3 dias" real** — exclusão é definitiva com undo via toast (6 s) e, pom importação, snapshot de uso único.
-3. **PIN**: sem limite de tentativas (força bruta na tela de bloqueio); hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage.
-4. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
-5. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
-6. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
+2. **PIN**: sem limite de tentativas (força bruta na tela de bloqueio); hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage.
+3. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
+4. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
+5. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
 
 ---
 
@@ -349,6 +351,7 @@ DOMContentLoaded (app.js)
  └─ initDB(cb=carregarDados)  (database)
      ├─ carregarDados() → dbGetAll → appDataFiltered/appDataRaw → banners
      │                    → datalists → calcularTotais → renderView()
+     ├─ limparLixeiraVencida()  (trash — purga itens >3 dias)
      └─ se cordova: deviceready → initNotifications()
          ├─ permissão POST_NOTIFICATIONS (Android 13+)
          ├─ configurarCanais()
