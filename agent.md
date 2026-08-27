@@ -182,7 +182,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 
 ### `render.js`
 - `clientSortFilter` global (`spent|alpha|recent|oldest`).
-- `renderView()` — despacha por `activeTab`; renderiza via strings HTML com `onclick` inline (usa `JSON.stringify(x)` — frágil com aspas no dado).
+- `renderView()` — despacha por `activeTab`; renderiza via strings HTML com `onclick` inline. **Objetos nas views** são passados por um registro em memória (`__storeViewData`/`__getViewData`, chave `tipo:id`), nunca interpolando `JSON.stringify()` no atributo — o mesmo objeto é recuperado no clique, sem afetar dados/armazenamento.
 - `renderServiceCard(x)`: itens (tipo, medida `WxH mUnit`, qty, preço, subtotal), botão de **próximo passo** do status → `openStatusModal`, log de datas (`historicoDatas`), `notes` vira link do **Google Maps**, botões Agenda/WhatsApp/PDF/Editar/Excluir.
 - Aba `services`: pills Pendentes (`Agendado|Realizado`) vs Concluídos (`Pago`), busca em client/desc/notes.
 - Aba `quotes`: status `Orçamento`. Aba `expenses`: linhas de gastos + editar/excluir.
@@ -331,10 +331,9 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 1. **PDF perdroso**: acentos/emoji removidos, sem paginação, coordenadas fixas (sobreposição em textos longos).
 2. **Sem "lixeira de 3 dias" real** — exclusão é definitiva com undo via toast (6 s) e, pom importação, snapshot de uso único.
 3. **PIN**: sem limite de tentativas (força bruta na tela de bloqueio); hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage.
-4. **Renderização por strings inline**: `JSON.stringify` dentro de `onclick` quebra com aspas/caracteres especiais em nomes.
-5. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
-6. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
-7. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
+4. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
+5. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
+6. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
 
 ---
 
