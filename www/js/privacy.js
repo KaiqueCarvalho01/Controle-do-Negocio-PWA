@@ -159,30 +159,25 @@ function closeSecurityModal() {
 
 /**
  * Trata a alternância da chave de PIN (ligar/desligar).
+ * - Ao ATIVAR: sempre solicita um NOVO PIN (como no primeiro cadastro).
+ *   A pessoa pode não lembrar/se lembrar incorretamente de um PIN antigo,
+ *   então não reativa o PIN anterior em silêncio.
+ * - Ao DESATIVAR: apenas desliga o bloqueio (sem pedir o PIN atual).
  */
 function onTogglePinSwitch(checked) {
-    const pinFormArea = document.getElementById('pinSetupFormArea');
     const pinActiveArea = document.getElementById('pinActiveStatusArea');
-    const secData = getPinSecurityData();
 
     if (checked) {
-        if (secData && secData.pinHash) {
-            // Já tinha PIN, apenas reativa
-            secData.enabled = true;
-            localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(secData));
-            if (pinFormArea) pinFormArea.classList.add('hidden');
-            if (pinActiveArea) pinActiveArea.classList.remove('hidden');
-            alert('🔒 Bloqueio por PIN ativado!');
-        } else {
-            // Precisa cadastrar pela primeira vez
-            if (pinFormArea) pinFormArea.classList.remove('hidden');
-            if (pinActiveArea) pinActiveArea.classList.add('hidden');
-        }
+        // Ativar → mostra o formulário de cadastro e limpa os campos,
+        // exigindo um PIN novo (o antigo, se houver, será sobrescrito ao salvar).
+        showPinSetupForm();
     } else {
+        const secData = getPinSecurityData();
         if (secData) {
             secData.enabled = false;
             localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(secData));
         }
+        const pinFormArea = document.getElementById('pinSetupFormArea');
         if (pinFormArea) pinFormArea.classList.add('hidden');
         if (pinActiveArea) pinActiveArea.classList.add('hidden');
         alert('🔓 Bloqueio por PIN desativado.');

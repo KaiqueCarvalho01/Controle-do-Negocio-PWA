@@ -222,7 +222,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 
 ### `privacy.js`
 - Lock por PIN: `checkAppLockStatus()` (no boot), keypad virtual (`handlePinDigit`, 4 dígitos, auto-submit), `submitUnlockPin` (verifica via `verifyHashedValue`), `unlockApp`. Sem contador de tentativas.
-- Config: `openSecurityModal`, `onTogglePinSwitch` (reativar reusa hash), `saveNewPinConfiguration` (PIN + pergunta/resposta secrets). Recuperação `openForgotPinModal` / `submitResetPinWithAnswer` (responde a pergunta → redefine PIN; modal sobrepoõe lock screen com `z-index: 1000000`).
+- Config: `openSecurityModal`, `onTogglePinSwitch` (ao ATIVAR sempre pede um PIN novo como no primeiro cadastro — não reativa o hash antigo; ao DESATIVAR apenas desliga), `saveNewPinConfiguration` (PIN + pergunta/resposta secrets). Recuperação `openForgotPinModal` / `submitResetPinWithAnswer` (responde a pergunta → redefine PIN; modal sobrepoõe lock screen com `z-index: 1000000`).
 - LGPD: `exportarDadosDoTitular(client)` (JSON portável Art. 18) e `anonimizarDadosCliente(client)` (vira `'Cliente Anonimizado'`, apaga phone, preserva valores financeiros, salva registro por registro).
 
 ### `inventory.js`
@@ -330,7 +330,7 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 
 1. **PDF perdroso**: acentos/emoji removidos, sem paginação, coordenadas fixas (sobreposição em textos longos).
 2. **Sem "lixeira de 3 dias" real** — exclusão é definitiva com undo via toast (6 s) e, pom importação, snapshot de uso único.
-3. **PIN**: sem limite de tentativas; hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage; reativar PIN não exige re-verificação.
+3. **PIN**: sem limite de tentativas (força bruta na tela de bloqueio); hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage.
 4. **Renderização por strings inline**: `JSON.stringify` dentro de `onclick` quebra com aspas/caracteres especiais em nomes.
 5. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
 6. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
