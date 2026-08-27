@@ -306,8 +306,24 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 - Datas em `YYYY-MM-DD` (ordenáveis lexicograficamente); exibição via `formatDateToBR`/`money`.
 - Valores monetários renderizados com classe `value-maskable` para o modo privacidade.
 - Nomes de função/variavel em **pt-BR** (`carregarDados`, `calcularTotais`, `renderView`).
-- Sem comentários de "resultado"; cabeçalhos de seção com `// ====` e JSDoc básico em português.
+- Cabeçalhos de seção com `// ====`, JSDoc básico em português nas funções e comentários explicativos para lógica não óbvia.
 - Modal: `.modal-overlay` + `.modal-card`; mostrar = remover `hidden`; alguns modais usam `z-index` acima de outros.
+
+### Retrocompatibilidade (regra de ouro)
+
+> Todo e qualquer alteração de código **deve** ser retrocompatível com versões anteriores do app. Bases de dados produzidas por versões antigas **nunca** podem quebrar ou perder informação.
+
+- **IndexedDB (`ControleNegocioDB`)**: nunca remover/renomear object stores (`services`, `expenses`, `quickEntries`, `inventory`) nem mudar o `keyPath` (`id`). Para adicionar novos campos, itens novos são opcionais e sempre tratados com fallback (`|| 0`, `|| ''`, `Array.isArray(...)`, `typeof === 'undefined'`). Aumentar `version` do banco só com `onupgradeneeded` que **cria** dados sem destruir os existentes.
+- **Registros**: ao salvar/editar, preservar todos os campos legados mesmo que não sejam mais usados na UI (ex.: o objeto `services` deve continuar gravando `quoteDate/scheduledDate/doneDate/paidDate`, `pay`, `labor`, `stockDebited`, `items[]` etc.).
+- **localStorage**: não renomear/remover chaves existentes (`app_notes_data`, `app_caixa_config`, `app_company_profile`, `app_pin_security_data`, `app_mask_values`, `last_manual_export`, `last_auto_backup`, `emergency_backup_snapshot`, `auto_backup_browser_snapshot`). Ao mudar formato, migrar na leitura (ver `getAllCaixaConfigs()` que migra o formato legado plano de `app_caixa_config` para `{default: {...}}`).
+- **Variáveis globais**: manter nomes e assinaturas de funções/variaveis já existentes. Novos recursos **adicionam** funções novas; não renomeiam/removem as atuais, pois o HTML chama via `onclick` inline e módulos dependem dos globals (`window.appDataRaw`, `window.appDataFiltered`, `activeTab`, `serviceSubFilter`, `allSubFilter`, `db`, `today`, etc.).
+- **Backups `.json`**: aceitar e restaurar formatos antigos (v1/v2/v3). Não exigir campos novos na importação; normalizar shape legado (ex.: `data.entries` → `quickEntries`).
+- **Dual contexto browser/Cordova**: manter guardas `typeof fn === 'function'`, `window.cordova`, `window.plugins` para o mesmo código rodar em PWA (navegador) e no WebView nativo.
+
+### Comentários
+
+- **Comentários devem ser MANTIDOS** ao editar código existente — não apagar os comentários/`JSDoc` já presentes nos arquivos.
+- **Comentários devem ser ACRESCENTADOS** sempre que a lógica for não óbvia (regras de negócio, cálculos de medidas/estoque, migrações, transições de status), explicando o **porquê** da decisão — em português, seguindo o estilo do projeto (`// texto`, `/** JSDoc */`).
 
 ---
 
