@@ -288,14 +288,19 @@ function openForgotPinModal() {
     document.getElementById('forgotPinQuestionText').textContent = secData.question;
     document.getElementById('inputForgotAnswer').value = '';
     document.getElementById('inputForgotNewPin').value = '';
-    document.getElementById('modalForgotPin').classList.remove('hidden');
+    const modal = document.getElementById('modalForgotPin');
+    // Garante que fique acima da lock screen (z-index: 999999)
+    modal.style.zIndex = '1000000';
+    modal.classList.remove('hidden');
 }
 
 /**
  * Fecha o modal de recuperação de PIN.
  */
 function closeForgotPinModal() {
-    document.getElementById('modalForgotPin').classList.add('hidden');
+    const modal = document.getElementById('modalForgotPin');
+    modal.classList.add('hidden');
+    modal.style.zIndex = '';
 }
 
 /**
