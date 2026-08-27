@@ -381,12 +381,11 @@ async function realizarBackupSilencioso() {
             companyProfile: JSON.parse(localStorage.getItem('app_company_profile') || '{}')
         };
 
-        let exportPayload = dataToExport;
-        if (typeof encryptBackupData === 'function') {
-            exportPayload = await encryptBackupData(dataToExport);
-        }
-
-        const dataStr = JSON.stringify(exportPayload);
+        // O backup silencioso é uma cópia interna do app armazenada no próprio
+        // aparelho (sem senha armazenada), por isso é salvo em texto puro.
+        // A criptografia AES-256 GCM por senha fica apenas para a exportação
+        // manual feita pelo usuário (exportarBackup).
+        const dataStr = JSON.stringify(dataToExport);
 
         // Se estiver em ambiente Cordova com acesso ao sistema de arquivos
         if (window.cordova && window.cordova.file && window.resolveLocalFileSystemURL) {
@@ -398,7 +397,7 @@ async function realizarBackupSilencioso() {
                     fileEntry.createWriter(function (fileWriter) {
                         fileWriter.onwriteend = function () {
                             localStorage.setItem('last_auto_backup', Date.now().toString());
-                            console.log('[AutoBackup] Backup silencioso protegido salvo com sucesso.');
+                            console.log('[AutoBackup] Backup silencioso interno salvo com sucesso.');
                         };
                         fileWriter.onerror = function (err) {
                             console.warn('[AutoBackup] Erro ao gravar arquivo:', err);
@@ -426,3 +425,42 @@ async function realizarBackupSilencioso() {
         console.warn('[AutoBackup] Falha no backup automático silencioso:', e);
     }
 }
+
+/**
+ * Realiza a limpeza completa e segura de todos os dados do aplicativo (IndexedDB, LocalStorage e Cache).
+ * Atende ao princípio do esquecimento total da LGPD / descarte de aparelho.
+ */
+async function limparTodosOsDadosLocais() {
+    const confirm1 = confirm('⚠️ ATENÇÃO: Deseja realmente APAGAR TODOS OS DADOS deste aplicativo?\n\nIsso removerá serviços, clientes, despesas, notas, configurações e PIN de acesso do seu navegador/aparelho.');
+    if (!confirm1) return;
+
+    const confirm2 = prompt('Para confirmar a exclusão definitiva, digite "APAGAR TUDO" em letras maiúsculas:');
+    if (confirm2 !== 'APAGAR TUDO') {
+        alert('Operação cancelada. Nenhum dado foi apagado.');
+        return;
+    }
+
+    try {
+        // 1. Limpa LocalStorage
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // 2. Limpa IndexedDB
+        if (window.indexedDB) {
+            indexedDB.deleteDatabase('ControleNegocioDB');
+        }
+
+        // 3. Limpa Caches de Service Worker
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+
+        alert('✅ Todos os dados locais foram apagados com sucesso!\nO aplicativo será reiniciado.');
+        window.location.reload();
+    } catch (err) {
+        console.error('Erro ao limpar dados:', err);
+        alert('Erro ao apagar dados: ' + err.message);
+    }
+}
+

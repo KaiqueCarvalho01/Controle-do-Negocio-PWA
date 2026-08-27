@@ -243,6 +243,7 @@ function renderInventoryList() {
         const specsText = item.specs ? `<div style="font-size: 11.5px; color: #666; margin-top: 2px;">🏷️ ${item.specs}</div>` : '';
         const catBadge = item.category ? `<span class="inv-badge-cat">${item.category}</span>` : '';
         const lowBadge = isLow ? `<span class="inv-badge-low">⚠️ Estoque Baixo (${item.qty}/${item.minQty})</span>` : '';
+        const invKey = __storeViewData('inventory', item);
 
         return `
             <div class="inv-item-card ${isLow ? 'inv-card-low' : ''}">
@@ -274,8 +275,8 @@ function renderInventoryList() {
                 </div>
 
                 <div class="inv-item-actions">
-                    <button type="button" class="btn-mini btn-edit" onclick='openInventoryForm(${JSON.stringify(item)})'>✏️ Editar</button>
-                    <button type="button" class="btn-mini btn-delete" onclick="deleteInventoryItem(${item.id}, '${item.name}')">🗑️ Excluir</button>
+                    <button type="button" class="btn-mini btn-edit" onclick='openInventoryForm(__getViewData("${invKey}"))'>✏️ Editar</button>
+                    <button type="button" class="btn-mini btn-delete" onclick="deleteInventoryItem(${item.id}, __getViewData(&quot;${invKey}&quot;).name)">🗑️ Excluir</button>
                 </div>
             </div>
         `;

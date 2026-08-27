@@ -184,6 +184,9 @@ function saveService() {
         // Debita ou estorna estoque conforme o status
         if (status === 'Realizado' || status === 'Pago') {
             if (typeof debitarEstoqueDoServico === 'function') {
+                if (existing && existing.stockDebited && typeof estornarEstoqueDoServico === 'function') {
+                    estornarEstoqueDoServico(existing);
+                }
                 debitarEstoqueDoServico(item);
             }
         } else if (existing && existing.stockDebited && (status === 'Orçamento' || status === 'Agendado')) {

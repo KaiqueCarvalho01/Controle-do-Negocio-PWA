@@ -137,3 +137,44 @@ async function decryptBackupData(encryptedObj, password) {
         throw new Error('Senha incorreta ou arquivo de backup corrompido.');
     }
 }
+
+/**
+ * Gera um hash SHA-256 seguro a partir de um valor e um salt em Base64.
+ * @param {string} value Valor a ser hasheado (ex: PIN ou Resposta Secreta).
+ * @param {string} saltBase64 Salt em Base64 (se omitido, um novo salt de 16 bytes é gerado).
+ */
+async function hashValueWithSalt(value, saltBase64 = null) {
+    let saltBytes;
+    if (saltBase64) {
+        saltBytes = base64ToBuffer(saltBase64);
+    } else {
+        saltBytes = window.crypto.getRandomValues(new Uint8Array(16));
+        saltBase64 = bufferToBase64(saltBytes);
+    }
+
+    const enc = new TextEncoder();
+    const valueBytes = enc.encode(value.toLowerCase().trim());
+    
+    // Concatena Salt + Valor
+    const combined = new Uint8Array(saltBytes.length + valueBytes.length);
+    combined.set(saltBytes, 0);
+    combined.set(valueBytes, saltBytes.length);
+
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', combined);
+    const hashBase64 = bufferToBase64(hashBuffer);
+
+    return {
+        salt: saltBase64,
+        hash: hashBase64
+    };
+}
+
+/**
+ * Valida se um valor bate com o hash e salt armazenados.
+ */
+async function verifyHashedValue(value, saltBase64, expectedHash) {
+    if (!value || !saltBase64 || !expectedHash) return false;
+    const result = await hashValueWithSalt(value, saltBase64);
+    return result.hash === expectedHash;
+}
+

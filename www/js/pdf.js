@@ -5,6 +5,83 @@
  */
 
 /**
+ * Salva ou compartilha o PDF gerado de acordo com o ambiente de execução.
+ *
+ * - Aparelho Android (Cordova): mantém o fluxo nativo de escrita no cache e
+ *   compartilhamento via social sharing (WhatsApp, Drive, e-mail).
+ * - Navegador desktop / PC (testes, testes no computador): baixa o arquivo
+ *   diretamente (download), sem abrir o seletor de compartilhamento do sistema.
+ * - Navegador mobile / PWA no celular: tenta o Web Share API (permite salvar
+ *   arquivos, mandar por WhatsApp etc.) com fallback automático para download.
+ *
+ * @param {Blob} pdfBlob Blob do PDF gerado.
+ * @param {string} nomeArquivo Nome do arquivo em disco (ex: 'Documento.pdf').
+ * @param {string} titulo Título usado no compartilhamento.
+ * @param {string} mensagem Texto de corpo usado no compartilhamento.
+ */
+function salvarOuCompartilharPdf(pdfBlob, nomeArquivo, titulo, mensagem) {
+    // 1) APK Android / Cordova: grava no cache nativo e abre o compartilhamento do sistema.
+    if (window.cordova && window.plugins && window.plugins.socialsharing && cordova.file) {
+        window.resolveLocalFileSystemURL(cordova.file.cacheDirectory, function (dirEntry) {
+            dirEntry.getFile(nomeArquivo, { create: true, exclusive: false }, function (fileEntry) {
+                fileEntry.createWriter(function (fileWriter) {
+                    fileWriter.onwriteend = function () {
+                        window.plugins.socialsharing.shareWithOptions({
+                            message: mensagem,
+                            subject: titulo,
+                            files: [fileEntry.nativeURL],
+                            chooserTitle: 'Compartilhar Documento PDF'
+                        });
+                    };
+                    fileWriter.write(pdfBlob);
+                });
+            });
+        }, function (err) {
+            alert('Erro ao salvar PDF: ' + JSON.stringify(err));
+        });
+        return;
+    }
+
+    // 2) Navegador desktop (PC) → download direto, sem pedir compartilhamento.
+    const ehDispositivoTatil = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+    if (!ehDispositivoTatil) {
+        baixarArquivo(pdfBlob, nomeArquivo);
+        return;
+    }
+
+    // 3) Navegador mobile / PWA → tenta Web Share; se indisponível/cancelado, baixa.
+    let compartilhou = false;
+    if (navigator.share && navigator.canShare) {
+        try {
+            const pdfFile = new File([pdfBlob], nomeArquivo, { type: 'application/pdf' });
+            if (navigator.canShare({ files: [pdfFile] })) {
+                navigator.share({ files: [pdfFile], title: titulo, text: mensagem });
+                compartilhou = true;
+            }
+        } catch (sErr) {
+            if (sErr.name === 'AbortError') compartilhou = true;
+        }
+    }
+    if (!compartilhou) baixarArquivo(pdfBlob, nomeArquivo);
+}
+
+/**
+ * Dispara o download de um Blob no navegador via link temporário <a download>.
+ * @param {Blob} blob Conteúdo do arquivo a ser baixado.
+ * @param {string} nomeArquivo Nome sugerido para o arquivo.
+ */
+function baixarArquivo(blob, nomeArquivo) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
  * Gera e compartilha o PDF de orçamento ou comprovante de serviço.
  * @param {Object} servico Objeto com os dados do serviço/orçamento.
  */
@@ -199,54 +276,12 @@ function gerarPdfServico(servico) {
         const pdfBlob = pdf.buildBlob();
         const nomeArquivoSanitizado = `Documento_${nomeCliente.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
-        if (window.cordova && window.plugins && window.plugins.socialsharing && cordova.file) {
-            window.resolveLocalFileSystemURL(cordova.file.cacheDirectory, function (dirEntry) {
-                dirEntry.getFile(nomeArquivoSanitizado, { create: true, exclusive: false }, function (fileEntry) {
-                    fileEntry.createWriter(function (fileWriter) {
-                        fileWriter.onwriteend = function () {
-                            window.plugins.socialsharing.shareWithOptions({
-                                message: `Olá! Segue o documento de ${isOrcamento ? 'orçamento' : 'serviço'}.`,
-                                subject: tituloDoc,
-                                files: [fileEntry.nativeURL],
-                                chooserTitle: 'Compartilhar Documento PDF'
-                            });
-                        };
-                        fileWriter.write(pdfBlob);
-                    });
-                });
-            }, function (err) {
-                alert('Erro ao salvar PDF: ' + JSON.stringify(err));
-            });
-        } else {
-            // Suporte a Web Share API no navegador mobile / PWA
-            let compartilhou = false;
-            if (navigator.share && navigator.canShare) {
-                try {
-                    const pdfFile = new File([pdfBlob], nomeArquivoSanitizado, { type: 'application/pdf' });
-                    if (navigator.canShare({ files: [pdfFile] })) {
-                        navigator.share({
-                            files: [pdfFile],
-                            title: tituloDoc,
-                            text: `Olá! Segue o documento de ${isOrcamento ? 'orçamento' : 'serviço'}.`
-                        });
-                        compartilhou = true;
-                    }
-                } catch (sErr) {
-                    if (sErr.name === 'AbortError') compartilhou = true;
-                }
-            }
-
-            if (!compartilhou) {
-                const url = URL.createObjectURL(pdfBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = nomeArquivoSanitizado;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }
-        }
+        salvarOuCompartilharPdf(
+            pdfBlob,
+            nomeArquivoSanitizado,
+            tituloDoc,
+            `Olá! Segue o documento de ${isOrcamento ? 'orçamento' : 'serviço'}.`
+        );
 
     } catch (err) {
         alert('Erro ao gerar documento PDF: ' + err.message);
@@ -378,54 +413,12 @@ function gerarPdfExtrato() {
         const pdfBlob = pdf.buildBlob();
         const nomeArquivo = `Extrato_${periodoTexto.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
-        if (window.cordova && window.plugins && window.plugins.socialsharing && cordova.file) {
-            window.resolveLocalFileSystemURL(cordova.file.cacheDirectory, function (dirEntry) {
-                dirEntry.getFile(nomeArquivo, { create: true, exclusive: false }, function (fileEntry) {
-                    fileEntry.createWriter(function (fileWriter) {
-                        fileWriter.onwriteend = function () {
-                            window.plugins.socialsharing.shareWithOptions({
-                                message: `Relatório financeiro - ${periodoTexto}`,
-                                subject: 'Relatório Financeiro',
-                                files: [fileEntry.nativeURL],
-                                chooserTitle: 'Compartilhar Relatório em PDF'
-                            });
-                        };
-                        fileWriter.write(pdfBlob);
-                    });
-                });
-            }, function (err) {
-                alert('Erro ao salvar relatório: ' + JSON.stringify(err));
-            });
-        } else {
-            // Suporte a Web Share API no navegador mobile / PWA
-            let compartilhou = false;
-            if (navigator.share && navigator.canShare) {
-                try {
-                    const pdfFile = new File([pdfBlob], nomeArquivo, { type: 'application/pdf' });
-                    if (navigator.canShare({ files: [pdfFile] })) {
-                        navigator.share({
-                            files: [pdfFile],
-                            title: 'Relatório Financeiro',
-                            text: `Relatório financeiro - ${periodoTexto}`
-                        });
-                        compartilhou = true;
-                    }
-                } catch (sErr) {
-                    if (sErr.name === 'AbortError') compartilhou = true;
-                }
-            }
-
-            if (!compartilhou) {
-                const url = URL.createObjectURL(pdfBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = nomeArquivo;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }
-        }
+        salvarOuCompartilharPdf(
+            pdfBlob,
+            nomeArquivo,
+            'Relatório Financeiro',
+            `Relatório financeiro - ${periodoTexto}`
+        );
 
     } catch (err) {
         alert('Erro ao gerar relatório do extrato: ' + err.message);

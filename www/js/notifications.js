@@ -56,11 +56,13 @@ function configurarCanais() {
 }
 
 /**
- * Agenda o disparo de um alerta às 08:00 da manhã no dia agendado do serviço.
+ * Agenda o disparo de um alerta no horário agendado do serviço.
+ * - Usa o campo `time` (HH:MM) informado no serviço; se vazio, mantém o
+ *   padrão de 08:00 da manhã no dia marcado.
  * - Se o status for alterado para diferente de 'Agendado', cancela a notificação existente.
  * - Gera um ID numérico único baseado no ID do registro no IndexedDB.
  * 
- * @param {Object} servico Objeto com os dados do serviço (id, client, scheduledDate, val, status, etc.)
+ * @param {Object} servico Objeto com os dados do serviço (id, client, scheduledDate, time, val, status, etc.)
  */
 function agendarNotificacaoServico(servico) {
     if (!window.cordova || !cordova.plugins || !cordova.plugins.notification) return;
@@ -78,8 +80,10 @@ function agendarNotificacaoServico(servico) {
     const dataAlvoStr = servico.scheduledDate || servico.date;
     if (!dataAlvoStr) return;
 
-    // Fixa o horário de notificação exatamente para as 08:00:00 da manhã do dia marcado
-    const dataAlvo = new Date(dataAlvoStr + 'T08:00:00');
+    // Usa o horário (HH:MM) definido no serviço; sem horário, mantém o padrão das 08:00 da manhã
+    const horarioServico = String(servico.time || '').trim();
+    const horaAlvo = /^\d{1,2}:\d{2}/.test(horarioServico) ? horarioServico : '08:00';
+    const dataAlvo = new Date(dataAlvoStr + 'T' + horaAlvo + ':00');
 
     // Só agenda se a data/hora for posterior ao momento atual
     if (dataAlvo > new Date()) {

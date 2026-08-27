@@ -2,6 +2,24 @@
 // RENDERIZAÇÃO VISUAL (VIEWS E CARDS)
 // ==========================================
 
+// Registro seguro de objetos para os onclick das views.
+// Evita interpolar JSON.stringify() em atributos HTML (quebra com aspas,
+// emojis e caracteres especiais em nomes/dados). A chave usa o id estável
+// do registro (prefixo por tipo), então re-renders apenas sobrescrevem a
+// referência — sem afetar armazenamento, formatos importados ou handlers.
+const __secureViewData = new Map();
+let __secureViewDataSeq = 0;
+
+function __storeViewData(type, obj) {
+    const key = (obj && obj.id != null) ? type + ':' + obj.id : type + ':auto:' + (++__secureViewDataSeq);
+    __secureViewData.set(key, obj);
+    return key;
+}
+
+function __getViewData(key) {
+    return __secureViewData.get(key);
+}
+
 function toggleCardDetails(id) {
     const body = document.getElementById(`card-body-${id}`);
     const icon = document.getElementById(`card-icon-${id}`);
@@ -17,6 +35,7 @@ function toggleCardDetails(id) {
  * @param {Object} x Objeto contendo os dados do serviço.
  */
 function renderServiceCard(x) {
+    const svcKey = __storeViewData('service', x);
     let itensDetalhados = '';
     if (Array.isArray(x.items) && x.items.length > 0) {
         itensDetalhados = x.items.map(it => {
@@ -68,18 +87,18 @@ function renderServiceCard(x) {
             </div>
 
             ${btnNextStep ? `<div style="margin-bottom: 8px;">${btnNextStep}</div>` : ''}
-            ${x.status === 'Agendado' ? `<button class="btn-action-lg secondary" style="width: 100%; border-color: #f57c00; color: #e65100; margin-bottom: 8px;" onclick='adicionarServicoNaAgenda(${JSON.stringify(x)})'>📅 Abrir na Agenda do Celular</button>` : ''}
+            ${x.status === 'Agendado' ? `<button class="btn-action-lg secondary" style="width: 100%; border-color: #f57c00; color: #e65100; margin-bottom: 8px;" onclick='adicionarServicoNaAgenda(__getViewData("${svcKey}"))'>📅 Abrir na Agenda do Celular</button>` : ''}
 
             <!-- Botões de Comunicação e Documento (WhatsApp e PDF) -->
             <div style="display: flex; gap: 8px; margin-top: 6px;">
-                ${x.phone ? `<button class="btn-action-lg btn-whatsapp-lg" style="flex: 1;" onclick='openWhatsApp(${JSON.stringify(x)})'>WhatsApp</button>` : ''}
-                <button class="btn-action-lg secondary" style="flex: 1; border-color: #1976d2;" onclick='gerarPdfServico(${JSON.stringify(x)})'>📄 Gerar PDF</button>
+                ${x.phone ? `<button class="btn-action-lg btn-whatsapp-lg" style="flex: 1;" onclick='openWhatsApp(__getViewData("${svcKey}"))'>WhatsApp</button>` : ''}
+                <button class="btn-action-lg secondary" style="flex: 1; border-color: #1976d2;" onclick='gerarPdfServico(__getViewData("${svcKey}"))'>📄 Gerar PDF</button>
             </div>
 
             <!-- Botões de Gerenciamento (Editar e Excluir) -->
             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <button type="button" class="secondary" style="flex: 1; padding: 10px; border-radius: 8px; font-size: 13px;" onclick='openServiceForm(${JSON.stringify(x)})'>✏️ Editar</button>
-                <button type="button" class="danger" style="flex: 1; padding: 10px; border-radius: 8px; font-size: 13px;" onclick="confirmDelete('services', ${x.id}, '${x.client}')">🗑️ Excluir</button>
+                <button type="button" class="secondary" style="flex: 1; padding: 10px; border-radius: 8px; font-size: 13px;" onclick='openServiceForm(__getViewData("${svcKey}"))'>✏️ Editar</button>
+                <button type="button" class="danger" style="flex: 1; padding: 10px; border-radius: 8px; font-size: 13px;" onclick="confirmDelete('services', ${x.id}, __getViewData(&quot;${svcKey}&quot;).client)">🗑️ Excluir</button>
             </div>
         </div>
     </div>`;
@@ -199,17 +218,20 @@ function renderView() {
             list = list.filter(x => (x.desc && x.desc.toLowerCase().includes(search)) || (x.cat && x.cat.toLowerCase().includes(search)));
         }
 
-        container.innerHTML = list.length ? list.map(x => `
+        container.innerHTML = list.length ? list.map(x => {
+            const expKey = __storeViewData('expense', x);
+            return `
             <div class="item">
                 <div class="item-actions">
-                    <button class="btn-mini btn-edit" onclick='openExpenseForm(${JSON.stringify(x)})'>Editar</button>
-                    <button class="btn-mini btn-delete" onclick="confirmDelete('expenses', ${x.id}, '${x.desc}')">Excluir</button>
+                    <button class="btn-mini btn-edit" onclick='openExpenseForm(__getViewData("${expKey}"))'>Editar</button>
+                    <button class="btn-mini btn-delete" onclick="confirmDelete('expenses', ${x.id}, __getViewData(&quot;${expKey}&quot;).desc)">Excluir</button>
                 </div>
                 <b>${x.desc}</b>
                 <div class="small">${formatDateToBR(x.date)} • Categoria: ${x.cat}</div>
                 <div class="value out value-maskable">- ${money(x.val)}</div>
             </div>
-        `).join('') : '<div class="small">Nenhum gasto encontrado no período.</div>';
+        `;
+        }).join('') : '<div class="small">Nenhum gasto encontrado no período.</div>';
 
         } else if (activeTab === 'all') {
                 const monthFilter = document.getElementById('filterMonth').value;
@@ -530,6 +552,7 @@ function renderClientsList() {
 
         const safeClientName = c.name.replace(/'/g, "\\'");
         const safePhone = (c.phone || '').replace(/'/g, "\\'");
+        const cliSvcKey = (c.phone && c.services[0]) ? __storeViewData('service', c.services[0]) : null;
 
         return `
             <div class="client-card">
@@ -555,8 +578,17 @@ function renderClientsList() {
                     </div>
 
                     <div style="display: flex; gap: 8px; margin: 10px 0;">
-                        ${c.phone ? `<button class="btn-action-lg btn-whatsapp-lg" style="flex: 1; min-height: 38px; padding: 6px 10px; font-size: 13px;" onclick='openWhatsApp(${JSON.stringify(c.services[0])})'>WhatsApp</button>` : ''}
+                        ${c.phone ? `<button class="btn-action-lg btn-whatsapp-lg" style="flex: 1; min-height: 38px; padding: 6px 10px; font-size: 13px;" onclick='openWhatsApp(__getViewData("${cliSvcKey}"))'>WhatsApp</button>` : ''}
                         <button class="btn-action-lg primary" style="flex: 1; min-height: 38px; padding: 6px 10px; font-size: 13px;" onclick="novoServicoParaCliente('${safeClientName}', '${safePhone}')">＋ Novo Serviço</button>
+                    </div>
+
+                    <!-- Ações de Privacidade & LGPD -->
+                    <div style="display: flex; gap: 6px; margin: 6px 0 10px 0; background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px dashed #cbd5e1; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 11px; color: #64748b; font-weight: bold;">Direitos LGPD:</span>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn-mini" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 3px 6px; font-size: 10px; border-radius: 4px;" title="Exportar dados do titular em JSON" onclick="exportarDadosDoTitular('${safeClientName}')">📥 Exportar Dados</button>
+                            <button type="button" class="btn-mini" style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 3px 6px; font-size: 10px; border-radius: 4px;" title="Anonimizar nome e telefone do cliente" onclick="anonimizarDadosCliente('${safeClientName}')">🛡️ Anonimizar</button>
+                        </div>
                     </div>
 
                     <h4 style="font-size: 13px; margin: 10px 0 6px 0; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px;">Histórico de Atendimentos:</h4>
