@@ -77,6 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
         checkAppLockStatus();
     }
 
+    // Notificações WEB (navegador/PWA) - fallback do plugin nativo do Cordova.
+    // No APK o fluxo nativo (initNotifications/deviceready) é quem assume.
+    if (typeof initWebNotifications === 'function') {
+        initWebNotifications();
+    }
+
     // Define a data de hoje por padrão em todos os inputs do tipo date
     document.querySelectorAll('input[type=date]').forEach(x => x.value = today);
     

@@ -163,7 +163,7 @@ Por isso os módulos usam guardas defensivas tipo `typeof fn === 'function'` ant
 
 ### `app.js` (orquestrador)
 - Globais: `activeTab` (`services|quotes|expenses|all`), `serviceSubFilter` (`pending|paid`), `allSubFilter` (`list|charts`), `deferredPwaPrompt`.
-- `DOMContentLoaded`: registra SW (`./sw.js`) e força recarga quando nova versão ativa; `initMaskValues()`; `checkAppLockStatus()`; popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); limparLixeiraVencida(); if (cordova) deviceready → initNotifications })`.
+- `DOMContentLoaded`: registra SW (`./sw.js`) e força recarga quando nova versão ativa; `initMaskValues()`; `checkAppLockStatus()`; `initWebNotifications()` (navegador/PWA — pede permissão e arma lembretes da sessão; APK ignora); popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); limparLixeiraVencida(); if (cordova) deviceready → initNotifications })`.
 - `beforeinstallprompt`/`appinstalled` → botão "Instalar Aplicativo" no drawer (`drawerInstallPwa`); `instalarPwaApp()`.
 - **`carregarDados(callback)`** — coração do app: `dbGetAll` → aplica filtro de mês (`filterMonth`, prefixo `YYYY-MM`), grava `window.appDataFiltered` e `window.appDataRaw`, banner de serviços de hoje, banner de backup >3d (`last_manual_export`), dispara backup silencioso se >24h, popula datalists de clientes/estoque, `calcularTotais()` e `renderView()`.
 - `calcularTotais()`: Recebido = soma de `status==='Pago'`; Pendente = `Agendado|Realizado`; Gastos = despesas; Lucro = in − out.
@@ -235,14 +235,16 @@ Lixeira de **3 dias** (`TRASH_TTL_MS`). `moverParaLixeira(store, record)` — de
 
 ### `notes.js`
 - Notas em `localStorage` (`app_notes_data`): `{id, text, date, time, done, createdAt}`.
-- `salvarNovaNota`, `toggleNotaConcluida` (cancela/reagenda alarme), `excluirNota`, `agendarLembreteNota` (ID = últimas 8 casas do id, canal `servicos_lembretes`, hora default 09:00), `reagendarTodasNotas()` (re-cria todos os alarmes pendentes — usado no boot e pós-importação).
+- `salvarNovaNota`, `toggleNotaConcluida` (cancela/reagenda alarme), `excluirNota`, `agendarLembreteNota` (ID = últimas 8 casas do id, canal `servicos_lembretes`, hora default 09:00; no navegador/PWA usa `agendarNotifWeb('note'+id)`), `reagendarTodasNotas()` (re-cria todos os alarmes pendentes — usado no boot e pós-importação).
 
 ### `notifications.js`
-- `initNotifications()` (no `deviceready`): pede permissão POST_NOTIFICATIONS (Android 13+/API 33) → só agenda **dentro do callback de concessão**; cria 3 canais.
+- Duas camadas: **APK/Cordova** = plugin nativo (alarme exato, funciona fechado); **Navegador/PWA** = API Web Notification (timers da sessão aberta; browser não agenda alarme em segundo plano). Helpers `notifCordovaDisponivel()`, `webNotifPermitida()`, `pedirPermissaoNotificacao(cb)`, `mostrarNotifWeb`, `agendarNotifWeb(chave, dataAlvo, título, texto)` (parou na sessão → disparo único via `__webNotifDisparados`; futuro → `setTimeout` em `__webNotifTimers`) e `cancelarNotifWeb(chave)`.
+- `initWebNotifications()` (só quando NÃO há Cordova): pede permissão → dá `granted` → `reagendarServicosFuturos`, `agendarLembreteBackup`, `verificarNotificacoesAoIniciar`, `reagendarTodasNotas` + `visibilitychange` (refoca → re-armar pendências).
+- `initNotifications()` (no `deviceready`, APK): pede permissão POST_NOTIFICATIONS (Android 13+/API 33) → só agenda **dentro do callback de concessão**; cria 3 canais.
 - Canais: `servicos_lembretes` (importância 4, vibração), `alertas_financeiros` (3, vibração), `sistema_backup` (3, sem vibração).
-- `agendarNotificacaoServico(servico)` — serviço `Agendado` → alarme na data (`scheduledDate || date`) **no horário do campo `time` (HH:MM)**; sem horário, fallback 08:00; não-Agendado → `cancel`.
-- `agendarLembreteBackup()` — recorrente 12:00 diário (ID fixo `999901`).
-- `verificarNotificacoesAoIniciar()` — 2,5 s após boot, alerta serviço `Realizado` não pago (ID fixo `999902`).
+- `agendarNotificacaoServico(servico)` — serviço `Agendado` → alarme na data (`scheduledDate || date`) **no horário do campo `time` (HH:MM)**; sem horário, fallback 08:00; não-Agendado → `cancel` (nativo) / `cancelarNotifWeb('svc'+id)` (web). Web: timer da sessão.
+- `agendarLembreteBackup()` — recorrente 12:00 diário (ID fixo `999901`); web: próxima 12:00 (uma vez por sessão, chave `backup-diario`).
+- `verificarNotificacoesAoIniciar()` — 2,5 s após boot, alerta serviço `Realizado` não pago (ID fixo `999902`); web: `mostrarNotifWeb`.
 - `reagendarServicosFuturos()` — re-cria alarmes de todos `Agendado` (recuperação pós-reboot — não há persistência de alarme no plugin).
 
 ### `calendar.js`
@@ -347,6 +349,13 @@ DOMContentLoaded (app.js)
  ├─ serviceWorker.register('./sw.js') → força update/reload em nova versão
  ├─ initMaskValues()  (utils)
  ├─ checkAppLockStatus()  (privacy — tela PIN se habilitado)
+ ├─ initWebNotifications()  (notifications — SÓ sem Cordova)
+ │   └─ permissão Notification → granted:
+ │       ├─ reagendarServicosFuturos()
+ │       ├─ agendarLembreteBackup()
+ │       ├─ verificarNotificacoesAoIniciar()
+ │       ├─ reagendarTodasNotas()
+ │       └─ visibilitychange → reagendarServicosFuturos()
  ├─ popularMeses()
  └─ initDB(cb=carregarDados)  (database)
      ├─ carregarDados() → dbGetAll → appDataFiltered/appDataRaw → banners
