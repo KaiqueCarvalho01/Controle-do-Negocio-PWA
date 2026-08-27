@@ -381,12 +381,11 @@ async function realizarBackupSilencioso() {
             companyProfile: JSON.parse(localStorage.getItem('app_company_profile') || '{}')
         };
 
-        let exportPayload = dataToExport;
-        if (typeof encryptBackupData === 'function') {
-            exportPayload = await encryptBackupData(dataToExport);
-        }
-
-        const dataStr = JSON.stringify(exportPayload);
+        // O backup silencioso é uma cópia interna do app armazenada no próprio
+        // aparelho (sem senha armazenada), por isso é salvo em texto puro.
+        // A criptografia AES-256 GCM por senha fica apenas para a exportação
+        // manual feita pelo usuário (exportarBackup).
+        const dataStr = JSON.stringify(dataToExport);
 
         // Se estiver em ambiente Cordova com acesso ao sistema de arquivos
         if (window.cordova && window.cordova.file && window.resolveLocalFileSystemURL) {
@@ -398,7 +397,7 @@ async function realizarBackupSilencioso() {
                     fileEntry.createWriter(function (fileWriter) {
                         fileWriter.onwriteend = function () {
                             localStorage.setItem('last_auto_backup', Date.now().toString());
-                            console.log('[AutoBackup] Backup silencioso protegido salvo com sucesso.');
+                            console.log('[AutoBackup] Backup silencioso interno salvo com sucesso.');
                         };
                         fileWriter.onerror = function (err) {
                             console.warn('[AutoBackup] Erro ao gravar arquivo:', err);

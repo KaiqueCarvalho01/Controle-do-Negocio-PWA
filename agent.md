@@ -192,7 +192,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 ### `forms.js`
 - Formulários serviço/despesa: `openServiceForm(editItem?)`, `openExpenseForm(editItem?, prefillData?)`, `closeAllForms()`.
 - `togglePayField()`: campo pagamento só visível quando status `Pago`.
-- **`saveService()`**: única validação = `client`. IDs = `Date.now()`. Log de datas de fase imutável ao editar (só preenche a data da fase atual se ainda não existe). Efeitos: `agendarNotificacaoServico`, prompt de agenda nativa se `Agendado` + plugin `window.plugins.calendar`, `debitarEstoqueDoServico` (Realizado/Pago), `estornarEstoqueDoServico` se voltar para Orçamento/Agendado e tinha `stockDebited`.
+- **`saveService()`**: única validação = `client`. IDs = `Date.now()`. Log de datas de fase imutável ao editar (só preenche a data da fase atual se ainda não existe). Efeitos: `agendarNotificacaoServico`, prompt de agenda nativa se `Agendado` + plugin `window.plugins.calendar`, **estoque**: se `Realizado`/`Pago` e o registro antigo já estava debitado, estorna o consumo antigo (`estornarEstoqueDoServico(existing)`) antes de debitar (`debitarEstoqueDoServico(item)`) — evita débito duplicado ao editar sem mudanças; `estornarEstoqueDoServico(existing)` se voltar para Orçamento/Agendado e tinha `stockDebited`.
 - **`recalcularTotaisServico(isSubtotalManual)`** — motor de preço: subtotal manual tem precedência; senão com 2 dimensões usa **área `w×h`** se o item do estoque for unidade `m²`, senão **perímetro/linear `w+h`**; 1 dimensão = linear com conversão (cm÷100, mm÷1000); `subtotal = price × qty × fatorMedida`; soma `labor` no total.
 - Datalists: `popularDatalistClientes`, `sugerirTelefoneCliente`, `popularDatalistEstoque`, `sugerirPrecoItemEstoque` (preenche salePrice/costPrice).
 - Itens dinâmicos: `addServiceItem(data?)`, `removeServiceItem(itemId)`.
@@ -210,8 +210,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 - `exportarBackup()` → envelope **v3** `{version:3, exportedAt, services, expenses, quickEntries, inventory, notes, caixaConfig, companyProfile}`; teste de integridade in-memory (stringify/parse); senha opcional via `prompt()` → criptografa (`encryptBackupData`); Cordova: grava em `cordova.file.cacheDirectory` + `socialsharing.shareWithOptions`; browser: Web Share API (AbortError = sucesso) ou `<a download>`; seta `last_manual_export`, `agendarLembreteBackup()`, `carregarDados()`.
 - `handleImportFile(event)` — lê/parseia; auto-detecta `__encrypted` → pede senha (`decryptBackupData`); normaliza legado (aceita v1/v2/v3; `data.entries` → quickEntries); **snapshot** `emergency_backup_snapshot` ANTES de apagar; transação limpa + recria as 4 stores; restaura notes/caixa/profile do localStorage; `reagendarTodasNotas()`; em `onerror` faz **rollback** a partir do snapshot.
 - `desfazerUltimaImportacao()` — restaura o snapshot (consumido uma vez) e o remove.
-- `realizarBackupSilencioso()` — auto diário/24 h; grava `auto_backup.json` em `cordova.file.dataDirectory`; browser → `auto_backup_browser_snapshot`.
-  - ⚠️ **Bug conhecido:** chama `encryptBackupData(dataToExport)` **sem senha**, que lança exceção → o backup silencioso sempre falha silenciosamente (`last_auto_backup` nunca é atualizado).
+- `realizarBackupSilencioso()` — auto diário/24 h; salva o envelope v3 **em texto puro** (cópia interna do app, sem senha — criptografia fica só para a exportação manual) em `auto_backup.json` no `cordova.file.dataDirectory`; browser → `auto_backup_browser_snapshot`; grava `last_auto_backup` ao concluir.
 - `limparTodosOsDadosLocais()` — LGPD/descarte: confirma 2x (exige digitar `"APAGAR TUDO"`), `localStorage.clear()`, `sessionStorage.clear()`, `indexedDB.deleteDatabase`, limpa caches do SW, reload.
 
 ### `crypto.js`
@@ -238,7 +237,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 ### `notifications.js`
 - `initNotifications()` (no `deviceready`): pede permissão POST_NOTIFICATIONS (Android 13+/API 33) → só agenda **dentro do callback de concessão**; cria 3 canais.
 - Canais: `servicos_lembretes` (importância 4, vibração), `alertas_financeiros` (3, vibração), `sistema_backup` (3, sem vibração).
-- `agendarNotificacaoServico(servico)` — serviço `Agendado` → alarme 08:00 na data (`scheduledDate || date`); **ignora o campo `time`**; não-Agendado → `cancel`.
+- `agendarNotificacaoServico(servico)` — serviço `Agendado` → alarme na data (`scheduledDate || date`) **no horário do campo `time` (HH:MM)**; sem horário, fallback 08:00; não-Agendado → `cancel`.
 - `agendarLembreteBackup()` — recorrente 12:00 diário (ID fixo `999901`).
 - `verificarNotificacoesAoIniciar()` — 2,5 s após boot, alerta serviço `Realizado` não pago (ID fixo `999902`).
 - `reagendarServicosFuturos()` — re-cria alarmes de todos `Agendado` (recuperação pós-reboot — não há persistência de alarme no plugin).
@@ -279,8 +278,8 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 
 - Cada transição registra a data de fase correspondente (`quoteDate/scheduledDate/doneDate/paidDate`), editáveis sem sobrescrever as anteriores.
 - `pay` só é persistido quando `Pago`.
-- Notificação automática 08:00 do dia para `Agendado`.
-- Estoque: debita em `Realizado`/`Pago`, estorna ao voltar para pendente ou excluir (flag `stockDebited`).
+- Notificação automática no horário agendado (`time`, fallback 08:00) para `Agendado`.
+- Estoque: debita em `Realizado`/`Pago` (guardado por flag `stockDebited`), estorna ao voltar para pendente ou excluir; ao **editar** um serviço já debitado, estorna o antigo e debita o novo (rebalanceamento).
 
 ### Metas financeiras & giro acumulado (Extrato)
 - `fundoCaixa` (pró-labore/salário do mês) é **por mês**; `capitalGiro` (reserva) é **global** (`targetCapitalGiro`).
@@ -294,7 +293,7 @@ Percentual sobre faturamento anual recebido (`Pago` apenas); cor muda em 80% (R$
 3 modos mutuamente exclusivos (ver seção decimo.js); o modo `excedente_giro` depende de `targetCapitalGiro` estar preenchido.
 
 ### Backup
-Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup silencioso dispara a cada **24 h** (hoje quebrado — ver bugs).
+Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup silencioso dispara a cada **24 h**.
 
 ---
 
@@ -329,16 +328,13 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 
 ## 8. Bugs / Peculiaridades Conhecidas
 
-1. **Backup silencioso sempre falha** — `realizarBackupSilencioso()` chama `encryptBackupData` sem senha (senha obrigatória) e engole o erro; `last_auto_backup` jamais atualiza.
-2. **Alarme de serviço fixo às 08:00** — ignora `service.time` (agenda usa o `time`, a notificação não).
-3. **PDF perdroso**: acentos/emoji removidos, sem paginação, coordenadas fixas (sobreposição em textos longos).
-4. **Sem "lixeira de 3 dias" real** — exclusão é definitiva com undo via toast (6 s) e, pom importação, snapshot de uso único.
-5. **PIN**: sem limite de tentativas; hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage; reativar PIN não exige re-verificação.
-6. **Renderização por strings inline**: `JSON.stringify` dentro de `onclick` quebra com aspas/caracteres especiais em nomes.
-7. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
-8. `debitarEstoqueDoServico` pode debitar 2× na transição `Realizado→Pago` (espera-se idempotência — não há guarda dupla em `confirmStatusChange`).
-9. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
-10. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
+1. **PDF perdroso**: acentos/emoji removidos, sem paginação, coordenadas fixas (sobreposição em textos longos).
+2. **Sem "lixeira de 3 dias" real** — exclusão é definitiva com undo via toast (6 s) e, pom importação, snapshot de uso único.
+3. **PIN**: sem limite de tentativas; hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage; reativar PIN não exige re-verificação.
+4. **Renderização por strings inline**: `JSON.stringify` dentro de `onclick` quebra com aspas/caracteres especiais em nomes.
+5. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
+6. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
+7. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
 
 ---
 
