@@ -4,14 +4,13 @@ Aplicativo mobile híbrido desenvolvido para profissionais autônomos, MEIs e pr
 
 ---
 
-## 📚 Manuais & Documentação Oficial
+## 📚 Manual do Usuário
 
-Para facilitar o uso e o desenvolvimento do aplicativo, disponibilizamos manuais completos em dois formatos:
+Guia completo do aplicativo em dois formatos:
 
-| Documento | Formato Markdown | Formato Visual / Pronto para PDF |
+| Documento | Formato Markdown | Formato PDF |
 | :--- | :--- | :--- |
-| **📘 Manual do Usuário** *(Guia Prático)* | [`MANUAL_DO_USUARIO.md`](file:///c:/Users/Kaique/Documents/ControleDoNegocio-git/controle-do-negocio/MANUAL_DO_USUARIO.md) | [`manual_do_usuario.html`](file:///c:/Users/Kaique/Documents/ControleDoNegocio-git/controle-do-negocio/manual_do_usuario.html) *(Ctrl + P para PDF)* |
-| **🛠️ Manual Técnico** *(Para Desenvolvedores)* | [`MANUAL_TECNICO.md`](file:///c:/Users/Kaique/Documents/ControleDoNegocio-git/controle-do-negocio/MANUAL_TECNICO.md) | [`manual_tecnico.html`](file:///c:/Users/Kaique/Documents/ControleDoNegocio-git/controle-do-negocio/manual_tecnico.html) *(Ctrl + P para PDF)* |
+| **📘 Manual do Usuário** | [`docs/MANUAL_DO_USUARIO.md`](docs/MANUAL_DO_USUARIO.md) | [`docs/MANUAL_DO_USUARIO.pdf`](docs/MANUAL_DO_USUARIO.pdf) |
 
 ---
 
@@ -76,7 +75,7 @@ Para facilitar o uso e o desenvolvimento do aplicativo, disponibilizamos manuais
 ### 🛡️ 7. Backup, Segurança & Snapshot de Restauração
 - **Exportação Validada:** Teste de integridade em memória (*Round-Trip Test*) e validação de tamanho de arquivo antes de salvar/compartilhar via WhatsApp, Drive ou E-mail.
 - **Backup Silencioso:** Cópia de segurança automática diária em segundo plano no armazenamento interno do app.
-- **Lembrete Periódico:** Notificação e banner caso o usuário passe mais de 7 dias sem exportar uma cópia de segurança externa.
+- **Lembrete Periódico:** Notificação e banner caso o usuário passe mais de **3 dias** sem exportar uma cópia de segurança externa.
 - **Snapshot Pré-Importação & Desfazer Importação:**
   - Antes de restaurar qualquer backup, o app grava um ponto de restauração completo no `localStorage`.
   - Opção **"↩️ Desfazer Importação"** no menu lateral para reverter 100% dos dados para o estado anterior caso um arquivo incorreto tenha sido importado.
@@ -105,10 +104,10 @@ Para facilitar o uso e o desenvolvimento do aplicativo, disponibilizamos manuais
 ---
 
 ### 🛡️ 11. Criptografia Militar de Backup (AES-256 GCM)
-- **Privacidade Total:** Os arquivos `.json` de backup são exportados com criptografia forte AES-256 via Web Cryptography API (`crypto.subtle`).
-- **Chave Mestra para Suporte:** Chave configurável em `crypto.js` para você recuperar o banco de clientes caso necessário.
-- **Ferramenta Visual de Leitura:** Painel offline `descriptografar.html` e script `descriptografar.js` para leitura e edição no computador.
-- **Retrocompatibilidade:** Aceita backups legados em texto puro sem quebrar nada.
+- **Privacidade Total:** Ao exportar, você pode proteger o `.json` com uma **senha pessoal** — a criptografia usa AES-256-GCM via Web Cryptography API (`crypto.subtle`).
+- **Criptografia Opcional:** Deixando a senha em branco, o backup é exportado em texto puro (útil para conferir/editar no computador).
+- **Importação Inteligente:** Na restauração, o app detecta sozinho se o arquivo é criptografado e pede a senha apenas nesse caso.
+- **Retrocompatibilidade:** Aceita backups antigos (v1/v2/v3, com ou sem senha) sem perder informação.
 
 ---
 
@@ -123,7 +122,7 @@ Para facilitar o uso e o desenvolvimento do aplicativo, disponibilizamos manuais
 ## 🛠️ Tecnologias Utilizadas
 
 - **Frontend:** HTML5, CSS3, JavaScript puro (Vanilla JS)
-- **Banco de Dados Local:** IndexedDB (`ControleNegocioDB` v3)
+- **Banco de Dados Local:** IndexedDB (`ControleNegocioDB` v4 - inclui a lixeira de 3 dias)
 - **Criptografia:** Web Cryptography API (AES-256 GCM + PBKDF2)
 - **Empacotamento Mobile:** Apache Cordova (Android)
 - **Plugins Cordova Integrados:**
@@ -138,8 +137,10 @@ Para facilitar o uso e o desenvolvimento do aplicativo, disponibilizamos manuais
 ## 📦 Estrutura do Projeto
 
 ```text
-controle-do-negocio/
+Controle-do-Negocio-PWA/
+├── .github/workflows/deploy.yml  # Publica www/ no GitHub Pages (push em main)
 ├── config.xml              # Configurações do Cordova, ícone, permissões e plugins
+├── docs/                   # Manuais (Manual do Usuário em .md e .pdf)
 ├── www/
 │   ├── css/
 │   │   ├── index.css       # Estilos base do Cordova
@@ -147,23 +148,28 @@ controle-do-negocio/
 │   ├── js/
 │   │   ├── annual.js       # Painel anual, fechamento mês a mês e termômetro do limite MEI
 │   │   ├── app.js          # Inicialização da SPA, carregamento de dados e navegação por abas
-│   │   ├── backup.js       # Exportação criptografada, importação validada, snapshot e desfazimento
+│   │   ├── backup.js       # Exportação (com senha opcional), importação validada, snapshot e desfazimento
 │   │   ├── calendar.js     # Integração com a agenda do Android via plugin
-│   │   ├── crypto.js       # Motor de criptografia e descriptografia AES-256 GCM
-│   │   ├── database.js     # Camada de persistência IndexedDB (v3 com suporte a estoque)
-│   │   ├── decimo.js       # Gestão e cálculo do 13º salário (Aporte Mensal e Excedente)
-│   │   ├── forms.js        # Validação de formulários e integração com datalist de estoque
+│   │   ├── crypto.js       # Motor de criptografia/descriptografia AES-256 GCM + hash de PIN
+│   │   ├── database.js     # Camada de persistência IndexedDB (v4, com lixeira de 3 dias)
+│   │   ├── decimo.js       # Gestão e cálculo do 13º salário (3 modos)
+│   │   ├── forms.js        # Formulários de serviço/despesa e cálculo de medidas via datalist de estoque
 │   │   ├── inventory.js    # Módulo de cadastro, saldo, busca e alerta de estoque de materiais
-│   │   ├── modals.js       # Controle de modais, metas de caixa e abertura do menu lateral (Drawer)
+│   │   ├── modals.js       # Controle de modais, metas de caixa e menu lateral (Drawer)
 │   │   ├── notes.js        # Bloco de notas, checklist e agendamento de alarmes locais
-│   │   ├── notifications.js# Gerenciador de notificações locais (serviços e lembretes)
-│   │   ├── pdf.js          # Gerador nativo de extratos em PDF
-│   │   ├── render.js       # Renderização dinâmica de listas, cards, clientes e lixeira
-│   │   ├── utils.js        # Funções utilitárias (formatação de moeda, datas, máscara de valores)
+│   │   ├── notifications.js# Gerenciador de notificações (APK nativo e PWA web)
+│   │   ├── pdf.js          # Gerador nativo de PDFs (orçamento/comprovante e extrato)
+│   │   ├── privacy.js      # Bloqueio por PIN, recuperação e LGPD (anonimizar/exportar dados)
+│   │   ├── render.js       # Renderização dinâmica de listas, cards, clientes e gráficos
+│   │   ├── trash.js        # Lixeira de 3 dias (excluir/restaurar/expirar)
+│   │   ├── utils.js        # Funções utilitárias (moeda, datas, máscara de valores, numVal)
 │   │   └── whatsapp.js     # Integração para envio de orçamentos e mensagens no WhatsApp
 │   ├── img/
-│   │   └── logo.png        # Identidade visual da aplicação
-│   └── index.html          # Estrutura principal da aplicação SPA e modais
+│   │   ├── logo.png        # Identidade visual da aplicação
+│   │   └── logo.svg        # Ícone da aplicação
+│   ├── index.html          # Estrutura principal da aplicação SPA e modais
+│   ├── manifest.json       # Manifesto PWA (standalone, tema, ícones)
+│   └── sw.js               # Service Worker (offline + atualizações)
 └── README.md
 ```
 
@@ -201,8 +207,13 @@ controle-do-negocio/
 
 ---
 
-## 🌿 Versionamento e Branches
+## 🌐 Acesso como PWA (navegador)
+
+Além do **APK Android** (build Cordova), o aplicativo também roda direto no navegador como **PWA**, hospedado no **GitHub Pages**. No celular, abra o site no navegador e use a opção **"Instalar Aplicativo"** para adicionar o ícone à tela inicial e usar como um app nativo (com funcionamento offline).
+
+## 🌿 Versionamento, Branches e Deploy
 
 - **`main`**: Código de produção estável e testado.
-- **`v1.2/[feature]`**: Novas funcionalidades e melhorias contínuas.
+- **Branches de desenvolvimento** (`security`, `features`, `bug-fixes`, etc.): novas funcionalidades e correções contínuas, integradas à `main` via Pull Request.
+- **GitHub Pages:** o workflow `.github/workflows/deploy.yml` publica automaticamente a pasta `www/` a cada push na `main`, atualizando o PWA hospedado.
 
