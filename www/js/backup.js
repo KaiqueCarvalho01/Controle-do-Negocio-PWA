@@ -129,7 +129,10 @@ function handleImportFile(event) {
     const reader = new FileReader();
     reader.onload = async function (e) {
         try {
-            let rawParsed = JSON.parse(e.target.result);
+            // Remove BOM/whitespace antes de validar o JSON (arquivos editados ou
+            // salvos por alguns editores podem vir com BOM e eram rejeitados como "corrompidos").
+            const textoArquivo = (e.target.result || '').replace(/^\uFEFF/, '').trim();
+            let rawParsed = JSON.parse(textoArquivo);
 
             if (!rawParsed || typeof rawParsed !== 'object') {
                 alert('Erro: Arquivo de backup corrompido ou formato inválido.');
@@ -194,6 +197,13 @@ function handleImportFile(event) {
             }
 
             // 2. Snapshot de Emergência Completo no localStorage antes de limpar o banco
+            if (typeof db === 'undefined' || !db) {
+                alert('Não foi possível acessar o banco de dados para restaurar o backup.\n\nFeche todas as outras abas/janelas deste app (inclusive a versão instalada) e abra novamente, depois tente importar de novo.');
+                event.target.value = '';
+                return;
+            }
+
+            try {
             dbGetAll(currentData => {
                 try {
                     const fullSnapshot = {
@@ -272,9 +282,23 @@ function handleImportFile(event) {
                     event.target.value = '';
                 };
             });
+            } catch (dbErr) {
+                console.error('Falha ao acessar o banco para restauração:', dbErr);
+                alert('Falha ao acessar o banco de dados para restaurar o backup.\n\nFeche todas as outras abas/janelas deste app (inclusive a versão instalada) e tente novamente.');
+                event.target.value = '';
+            }
 
         } catch (err) {
-            alert('Erro: O arquivo de backup selecionado está corrompido ou possui erros de sintaxe.');
+            // Exibe o erro REAL: o arquivo pode não ser JSON (ex.: página HTML/404 baixada no lugar do backup)
+            const ehPaginaWeb = /<(!doctype|html)/i.test(e.target.result || '');
+            const preview = String(e.target.result || '').replace(/\s+/g, ' ').substring(0, 80);
+            const temMais = String(e.target.result || '').length > 80;
+            alert('Não foi possível ler este arquivo como backup.\n\n'
+                + (ehPaginaWeb
+                    ? 'O arquivo selecionado é uma página da web (ex.: erro 404 do servidor), não um backup.\n\n'
+                    : 'O arquivo pode não ser um backup válido ou estar danificado.\n\n')
+                + 'Início do arquivo: "' + preview + (temMais ? '..."' : '"')
+                + '\n\nSe o problema persistir, exporte um novo backup pelo app.');
             event.target.value = '';
         }
     };

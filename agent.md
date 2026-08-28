@@ -25,7 +25,7 @@ Aplicativo **mobile híbrido + PWA** para **autônomos, MEIs e prestadores de se
 | Banco de dados | **IndexedDB** (`ControleNegocioDB`, versão **4**; store `trash` para lixeira de 3 dias) |
 | Config/estado pequeno | `localStorage` (notas, metas, perfil, PIN, snapshots, timestamps) |
 | Criptografia | Web Crypto API — **AES-256-GCM + PBKDF2** (backup) e **SHA-256 com salt** (PIN/respostas) |
-| Offline | **Service Worker** (`CACHE_NAME 'controle-negocio-v4.0.1'`) |
+| Offline | **Service Worker** (`CACHE_NAME 'controle-negocio-v4.4.0'` — bumpar em cada release) |
 | Empacotamento | **Apache Cordova** (apenas plataforma Android) |
 | WebView nativa | `<script src="cordova.js">` injetado no build (ausente no navegador) |
 
@@ -64,7 +64,7 @@ Controle-do-Negocio-PWA/
     ├── index.html            # SPA: header, drawer, filtros, cards, formulários,
     │                         #   abas, ~12 modais, lock screen, loads dos scripts
     ├── manifest.json         # PWA: standalone, portrait, theme #1976d2
-    ├── sw.js                 # Service Worker v4.0.1 (network-first para JS/HTML/CSS)
+    ├── sw.js                 # Service Worker (network-first p/ JS/HTML/CSS; CACHE_NAME v4.4.0)
     ├── css/
     │   ├── index.css         # Estilos base do template Cordova
     │   └── style.css         # Toda a UI custom (modais, drawer, cards, PIN, temas)
@@ -163,7 +163,7 @@ Por isso os módulos usam guardas defensivas tipo `typeof fn === 'function'` ant
 
 ### `app.js` (orquestrador)
 - Globais: `activeTab` (`services|quotes|expenses|all`), `serviceSubFilter` (`pending|paid`), `allSubFilter` (`list|charts`), `deferredPwaPrompt`.
-- `DOMContentLoaded`: registra SW (`./sw.js`) e força recarga quando nova versão ativa; `initMaskValues()`; `checkAppLockStatus()`; `initWebNotifications()` (navegador/PWA — pede permissão e arma lembretes da sessão; APK ignora); popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); limparLixeiraVencida(); if (cordova) deviceready → initNotifications })`.
+- `DOMContentLoaded`: registra SW (`./sw.js`); em nova versão ativada mostra **banner `#appUpdateBanner`** ("🔄 Nova versão disponível — toque para atualizar" → reload sob ação do usuário) — **nunca** recarrega sozinho (evita perder digitação/produtividade do usuário); `initMaskValues()`; `checkAppLockStatus()`; `initWebNotifications()` (navegador/PWA — pede permissão e arma lembretes da sessão; APK ignora); popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); limparLixeiraVencida(); if (cordova) deviceready → initNotifications })`.
 - `beforeinstallprompt`/`appinstalled` → botão "Instalar Aplicativo" no drawer (`drawerInstallPwa`); `instalarPwaApp()`.
 - **`carregarDados(callback)`** — coração do app: `dbGetAll` → **sanatização retrocompatível** (converte `val` em string/ausente para número nas 4 listas e persiste via `dbSaveAll` se algo mudou — corrige dados legados "corrompidos" sozinho) → aplica filtro de mês (`filterMonth`, prefixo `YYYY-MM`), grava `window.appDataFiltered` e `window.appDataRaw`, banner de serviços de hoje, banner de backup >3d (`last_manual_export`), dispara backup silencioso se >24h, popula datalists de clientes/estoque, `calcularTotais()` e `renderView()`.
 - `calcularTotais()`: Recebido = soma de `status==='Pago'`; Pendente = `Agendado|Realizado`; Gastos = despesas; Lucro = in − out.
@@ -171,7 +171,7 @@ Por isso os módulos usam guardas defensivas tipo `typeof fn === 'function'` ant
 - `switchTab`/`switchServiceSubFilter`/`switchAllSubFilter`.
 
 ### `database.js`
-API mínima: `initDB(cb)` (v4 — cria as 4 stores + `trash` na falta), `dbSave(store, item, cb)`, `dbDelete(store, id, cb)`, `dbGetAll(cb)` retorna `{services, expenses, quickEntries, inventory}` (4 stores numa transaction), `dbSaveAll(data, cb)` grava as 4 listas numa transação (usado pela sanatização). Lixeira: `dbTrashPut(entry, cb)`, `dbTrashGetAll(cb)`, `dbTrashDelete(tid, cb)`.
+API mínima: `initDB(cb)` (v4 — cria as 4 stores + `trash` na falta). **`initDB` nunca trava silenciosamente**: trata `onblocked` (outra aba/janela antiga ainda aberta bloqueando o upgrade → aviso + retentativa automática a cada 2 s, máx. 10×), `onversionchange` na conexão atual (fecha `db` quando outra aba atualizar) e `onerror` com alerta visível ao usuário. `dbSave(store, item, cb)`, `dbDelete(store, id, cb)`, `dbGetAll(cb)` retorna `{services, expenses, quickEntries, inventory}` (4 stores numa transaction), `dbSaveAll(data, cb)` grava as 4 listas numa transação (usado pela sanatização). Lixeira: `dbTrashPut(entry, cb)`, `dbTrashGetAll(cb)`, `dbTrashDelete(tid, cb)`.
 
 ### `trash.js`
 Lixeira de **3 dias** (`TRASH_TTL_MS`). `moverParaLixeira(store, record)` — deep-copy `JSON` do registro + `deletedAt` em envelope `{tid, storeName, id, deletedAt, data}` (store `trash`). `restaurarItemLixeira(tid)` — re-save no local original (notas → localStorage; serviços re-agendam notificação; notas re-agendam lembrete) e remove o envelope. `excluirDefinitivamenteItemLixeira(tid)` / `esvaziarLixeira()` — descartam envelopes (efeitos destrutivos já aplicados na exclusão). `limparLixeiraVencida()` — purga >3 dias (boot + ao renderizar). UI: drawer "Lixeira (3 dias)" → `modalTrash` (`openTrashModal`/`closeTrashModal`/`renderTrashList`). Restauração = mesmo equivalente do desfazer via toast (cópia pós-estorno tem `stockDebited=false`).
@@ -213,7 +213,7 @@ Lixeira de **3 dias** (`TRASH_TTL_MS`). `moverParaLixeira(store, record)` — de
 
 ### `backup.js`
 - `exportarBackup()` → envelope **v3** `{version:3, exportedAt, services, expenses, quickEntries, inventory, notes, caixaConfig, companyProfile}`; teste de integridade in-memory (stringify/parse); senha opcional via `prompt()` → criptografa (`encryptBackupData`); Cordova: grava em `cordova.file.cacheDirectory` + `socialsharing.shareWithOptions`; browser: Web Share API (AbortError = sucesso) ou `<a download>`; seta `last_manual_export`, `agendarLembreteBackup()`, `carregarDados()`.
-- `handleImportFile(event)` — lê/parseia; auto-detecta `__encrypted` → pede senha (`decryptBackupData`); normaliza legado (aceita v1/v2/v3; `data.entries` → quickEntries); **sanatiza as 4 listas** (`normalizarRegistros`) antes de gravar — regra: valores monetários ficam SEMPRE numéricos no banco; **snapshot** `emergency_backup_snapshot` ANTES de apagar; transação limpa + recria as 4 stores; restaura notes/caixa/profile do localStorage; `reagendarTodasNotas()`; em `onerror` faz **rollback** a partir do snapshot.
+- `handleImportFile(event)` — lê/parseia (remove **BOM** e `trim()` antes do `JSON.parse`); auto-detecta `__encrypted` → pede senha (`decryptBackupData`); normaliza legado (aceita v1/v2/v3; `data.entries` → quickEntries); **sanatiza as 4 listas** (`normalizarRegistros`) antes de gravar — regra: valores monetários ficam SEMPRE numéricos no banco; **snapshot** `emergency_backup_snapshot` ANTES de apagar; guarda se `db` indisponível → mensagem clara ("feche as outras abas/janelas"); transação limpa + recria as 4 stores; restaura notes/caixa/profile do localStorage; `reagendarTodasNotas()`; em `onerror` faz **rollback** a partir do snapshot. **Nunca exibe o falso genérico "corrompido"**: erros de acesso ao banco têm mensagem própria; o `catch` final mostra o erro REAL + prévia do arquivo (detecta página HTML/404 baixada no lugar do JSON).
 - `desfazerUltimaImportacao()` — restaura o snapshot (consumido uma vez) e o remove.
 - `realizarBackupSilencioso()` — auto diário/24 h; salva o envelope v3 **em texto puro** (cópia interna do app, sem senha — criptografia fica só para a exportação manual) em `auto_backup.json` no `cordova.file.dataDirectory`; browser → `auto_backup_browser_snapshot`; grava `last_auto_backup` ao concluir.
 - `limparTodosOsDadosLocais()` — LGPD/descarte: confirma 2x (exige digitar `"APAGAR TUDO"`), `localStorage.clear()`, `sessionStorage.clear()`, `indexedDB.deleteDatabase`, limpa caches do SW, reload.
@@ -348,7 +348,7 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 ```
 Boot:
 DOMContentLoaded (app.js)
- ├─ serviceWorker.register('./sw.js') → força update/reload em nova versão
+ ├─ serviceWorker.register('./sw.js') → nova versão ativada = banner "atualizar" (sem reload automático)
  ├─ initMaskValues()  (utils)
  ├─ checkAppLockStatus()  (privacy — tela PIN se habilitado)
  ├─ initWebNotifications()  (notifications — SÓ sem Cordova)
