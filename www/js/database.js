@@ -1,24 +1,53 @@
 let db;
 
 function initDB(callback) {
-    const request = indexedDB.open('ControleNegocioDB', 4);
+    let tentativas = 0;
 
-    request.onerror = e => console.error("Erro no IndexedDB", e);
+    function abrir() {
+        const request = indexedDB.open('ControleNegocioDB', 4);
 
-    request.onupgradeneeded = e => {
-        db = e.target.result;
-        if (!db.objectStoreNames.contains('services')) db.createObjectStore('services', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('expenses')) db.createObjectStore('expenses', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('quickEntries')) db.createObjectStore('quickEntries', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('inventory')) db.createObjectStore('inventory', { keyPath: 'id' });
-        // Store da Lixeira (3 dias): keyPath 'tid' = '<storeName>:<id>'
-        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash', { keyPath: 'tid' });
-    };
+        request.onerror = e => {
+            console.error("Erro no IndexedDB", e);
+            alert('Falha ao abrir o banco de dados do app.\n\nFeche todas as outras abas/janelas deste app e reinicie.');
+        };
 
-    request.onsuccess = e => {
-        db = e.target.result;
-        if (callback) callback();
-    };
+        request.onupgradeneeded = e => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains('services')) db.createObjectStore('services', { keyPath: 'id' });
+            if (!db.objectStoreNames.contains('expenses')) db.createObjectStore('expenses', { keyPath: 'id' });
+            if (!db.objectStoreNames.contains('quickEntries')) db.createObjectStore('quickEntries', { keyPath: 'id' });
+            if (!db.objectStoreNames.contains('inventory')) db.createObjectStore('inventory', { keyPath: 'id' });
+            // Store da Lixeira (3 dias): keyPath 'tid' = '<storeName>:<id>'
+            if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash', { keyPath: 'tid' });
+        };
+
+        // Evita que uma aba/janela antiga ainda aberta trave o upgrade do banco
+        // (caso em que o app ficava sem dados e backups pareciam "corrompidos").
+        request.onblocked = () => {
+            console.warn('[DB] Upgrade bloqueado por outra aba/janela aberta. Nova tentativa em 2s...');
+            tentativas++;
+            if (tentativas === 1) {
+                alert('⚠️ Outra janela/aba deste app está aberta com uma versão antiga e impede a atualização dos dados.\n\n• Feche todas as outras abas/janelas deste app (inclusive a versão instalada na tela inicial)\n• Este app tentará reabrir o banco automaticamente.');
+            }
+            if (tentativas <= 10) {
+                setTimeout(abrir, 2000);
+            } else {
+                alert('Não foi possível atualizar o banco de dados.\n\nFeche todas as janelas/abas deste app e abra novamente.');
+            }
+        };
+
+        request.onsuccess = e => {
+            db = e.target.result;
+            // Libera a conexão atual se outra aba atualizar a versão do banco
+            db.onversionchange = () => {
+                console.warn('[DB] Conexão fechada: outra aba atualizou a versão do banco.');
+                try { db.close(); } catch (err) { console.warn('[DB] Falha ao fechar conexão antiga:', err); }
+            };
+            if (callback) callback();
+        };
+    }
+
+    abrir();
 }
 
 function dbSave(storeName, item, callback) {

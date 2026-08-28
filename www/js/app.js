@@ -43,6 +43,22 @@ function instalarPwaApp() {
     }
 }
 
+/**
+ * Mostra um aviso fixo pedindo ao usuário para atualizar quando uma nova versão
+ * é publicada (evita recarregar a página sozinho no meio de uma digitação).
+ */
+function notificarNovaVersao() {
+    let el = document.getElementById('appUpdateBanner');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'appUpdateBanner';
+        el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1976d2;color:#fff;padding:12px 14px;text-align:center;font-size:14px;font-weight:bold;cursor:pointer;box-shadow:0 -2px 8px rgba(0,0,0,.35);';
+        el.innerHTML = '🔄 Nova versão disponível — toque para atualizar';
+        el.onclick = () => window.location.reload();
+        document.body.appendChild(el);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Registra o Service Worker para funcionamento 100% offline
     if ('serviceWorker' in navigator) {
@@ -51,14 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[Service Worker] Ativo no escopo:', reg.scope);
                 // Verifica atualizações imediatamente
                 reg.update();
-                // Quando um novo SW for instalado, força ativação e recarrega
+                // Quando um novo SW for instalado, avisa o usuário (sem recarregar sozinho)
                 reg.addEventListener('updatefound', () => {
                     const newWorker = reg.installing;
                     if (newWorker) {
                         newWorker.addEventListener('statechange', () => {
                             if (newWorker.state === 'activated') {
-                                console.log('[Service Worker] Nova versão ativada, recarregando...');
-                                window.location.reload();
+                                console.log('[Service Worker] Nova versão ativada. Aguardando o usuário atualizar...');
+                                notificarNovaVersao();
                             }
                         });
                     }
