@@ -1,7 +1,7 @@
 let db;
 
 function initDB(callback) {
-    const request = indexedDB.open('ControleNegocioDB', 3);
+    const request = indexedDB.open('ControleNegocioDB', 4);
 
     request.onerror = e => console.error("Erro no IndexedDB", e);
 
@@ -11,6 +11,8 @@ function initDB(callback) {
         if (!db.objectStoreNames.contains('expenses')) db.createObjectStore('expenses', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('quickEntries')) db.createObjectStore('quickEntries', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('inventory')) db.createObjectStore('inventory', { keyPath: 'id' });
+        // Store da Lixeira (3 dias): keyPath 'tid' = '<storeName>:<id>'
+        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash', { keyPath: 'tid' });
     };
 
     request.onsuccess = e => {
@@ -49,5 +51,54 @@ function dbGetAll(callback) {
             quickEntries: reqQuick.result || [],
             inventory: reqInventory.result || []
         });
+    };
+}
+
+/**
+ * Grava todas as listas de uma vez (usado pela sanatização retrocompatível que
+ * corrige registros legados/corrompidos no carregamento).
+ * @param {{services?: Array, expenses?: Array, quickEntries?: Array, inventory?: Array}} data
+ * @param {Function} [callback]
+ */
+function dbSaveAll(data, callback) {
+    let tx = db.transaction(['services', 'expenses', 'quickEntries', 'inventory'], 'readwrite');
+    let s = tx.objectStore('services');
+    let e = tx.objectStore('expenses');
+    let q = tx.objectStore('quickEntries');
+    let i = tx.objectStore('inventory');
+    (data.services || []).forEach(it => s.put(it));
+    (data.expenses || []).forEach(it => e.put(it));
+    (data.quickEntries || []).forEach(it => q.put(it));
+    (data.inventory || []).forEach(it => i.put(it));
+    tx.oncomplete = () => {
+        if (callback) callback();
+    };
+}
+
+// ==========================================
+// LIXEIRA (store 'trash')
+// ==========================================
+
+function dbTrashPut(entry, callback) {
+    let tx = db.transaction('trash', 'readwrite');
+    tx.objectStore('trash').put(entry);
+    tx.oncomplete = () => {
+        if (callback) callback();
+    };
+}
+
+function dbTrashGetAll(callback) {
+    let tx = db.transaction('trash', 'readonly');
+    let req = tx.objectStore('trash').getAll();
+    tx.oncomplete = () => {
+        callback(req.result || []);
+    };
+}
+
+function dbTrashDelete(tid, callback) {
+    let tx = db.transaction('trash', 'readwrite');
+    tx.objectStore('trash').delete(tid);
+    tx.oncomplete = () => {
+        if (callback) callback();
     };
 }

@@ -130,10 +130,15 @@ function toggleNotaConcluida(id) {
 
 /**
  * Exclui uma nota da lista e cancela sua notificação se houver.
+ * Vai para a lixeira (retenção de 3 dias) e pode ser restaurada.
  * @param {number} id ID da nota.
  */
 function excluirNota(id) {
     let notes = getNotes();
+    const nota = notes.find(n => n.id === id);
+    if (nota && typeof moverParaLixeira === 'function') {
+        moverParaLixeira('notes', nota);
+    }
     notes = notes.filter(n => n.id !== id);
     setNotes(notes);
     cancelarLembreteNota(id);
@@ -146,7 +151,6 @@ function excluirNota(id) {
  */
 function agendarLembreteNota(nota) {
     if (!nota || !nota.date || nota.done) return;
-    if (!window.cordova || !cordova.plugins || !cordova.plugins.notification) return;
 
     try {
         const notifId = Math.abs(Number(String(nota.id).slice(-8)));
@@ -163,15 +167,20 @@ function agendarLembreteNota(nota) {
         const dataAlvo = new Date(ano, mes - 1, dia, hora, minuto, 0);
 
         if (dataAlvo > new Date()) {
-            cordova.plugins.notification.local.schedule({
-                id: notifId,
-                title: '📝 Lembrete de Tarefa!',
-                text: nota.text,
-                trigger: { at: dataAlvo },
-                channel: 'servicos_lembretes',
-                foreground: true
-            });
-            console.log('Notificação de nota agendada com sucesso para:', dataAlvo);
+            if (notifCordovaDisponivel()) {
+                cordova.plugins.notification.local.schedule({
+                    id: notifId,
+                    title: '📝 Lembrete de Tarefa!',
+                    text: nota.text,
+                    trigger: { at: dataAlvo },
+                    channel: 'servicos_lembretes',
+                    foreground: true
+                });
+                console.log('Notificação de nota agendada com sucesso para:', dataAlvo);
+            } else if (webNotifPermitida()) {
+                // Navegador/PWA: timer da sessão (app aberto)
+                agendarNotifWeb('note' + nota.id, dataAlvo, '📝 Lembrete de Tarefa!', nota.text);
+            }
         }
     } catch (e) {
         console.error('Erro ao agendar notificação da nota:', e);
@@ -183,20 +192,24 @@ function agendarLembreteNota(nota) {
  * @param {number} id ID da nota.
  */
 function cancelarLembreteNota(id) {
-    if (!window.cordova || !cordova.plugins || !cordova.plugins.notification) return;
-    try {
-        const notifId = Math.abs(Number(String(id).slice(-8)));
-        cordova.plugins.notification.local.cancel(notifId);
-    } catch (e) {
-        console.error('Erro ao cancelar notificação de nota:', e);
+    if (notifCordovaDisponivel()) {
+        try {
+            const notifId = Math.abs(Number(String(id).slice(-8)));
+            cordova.plugins.notification.local.cancel(notifId);
+        } catch (e) {
+            console.error('Erro ao cancelar notificação de nota:', e);
+        }
+        return;
     }
+    // Navegador/PWA: cancela o timer da sessão
+    cancelarNotifWeb('note' + id);
 }
 
 /**
  * Reagenda todas as notas com lembretes pendentes ao inicializar o app.
  */
 function reagendarTodasNotas() {
-    if (!window.cordova || !cordova.plugins || !cordova.plugins.notification) return;
+    if (!notifCordovaDisponivel() && !webNotifPermitida()) return;
     const notes = getNotes();
     notes.filter(n => !n.done && n.date).forEach(n => agendarLembreteNota(n));
 }

@@ -67,8 +67,8 @@ function renderAnnualReport(year) {
     const servicesYear = rawServices.filter(s => s.status === 'Pago' && s.date && s.date.startsWith(year));
     const expensesYear = rawExpenses.filter(e => e.date && e.date.startsWith(year));
 
-    const totalInYear = servicesYear.reduce((acc, s) => acc + (s.val || 0), 0);
-    const totalOutYear = expensesYear.reduce((acc, e) => acc + (e.val || 0), 0);
+    const totalInYear = servicesYear.reduce((acc, s) => acc + numVal(s.val), 0);
+    const totalOutYear = expensesYear.reduce((acc, e) => acc + numVal(e.val), 0);
     const lucroYear = totalInYear - totalOutYear;
 
     // Termometro do MEI
@@ -100,8 +100,8 @@ function renderAnnualReport(year) {
         const mesPad = String(index + 1).padStart(2, '0');
         const mesStr = `${year}-${mesPad}`;
 
-        const inMes = servicesYear.filter(s => s.date && s.date.startsWith(mesStr)).reduce((acc, s) => acc + (s.val || 0), 0);
-        const outMes = expensesYear.filter(e => e.date && e.date.startsWith(mesStr)).reduce((acc, e) => acc + (e.val || 0), 0);
+        const inMes = servicesYear.filter(s => s.date && s.date.startsWith(mesStr)).reduce((acc, s) => acc + numVal(s.val), 0);
+        const outMes = expensesYear.filter(e => e.date && e.date.startsWith(mesStr)).reduce((acc, e) => acc + numVal(e.val), 0);
         const lucroMes = inMes - outMes;
 
         if (inMes > 0 || outMes > 0) {

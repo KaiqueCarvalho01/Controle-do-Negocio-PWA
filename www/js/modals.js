@@ -162,8 +162,12 @@ function closeCaixaModal() {
  * Salva as metas de caixa no localStorage (por mês) e atualiza a visualização.
  */
 function saveCaixaConfig() {
-    const fundoCaixa = parseFloat(document.getElementById('inputFundoCaixa').value) || 0;
-    const capitalGiro = parseFloat(document.getElementById('inputCapitalGiro').value) || 0;
+    if (!validarCampoValorMonetario(document.getElementById('inputFundoCaixa')) ||
+        !validarCampoValorMonetario(document.getElementById('inputCapitalGiro'))) {
+        return;
+    }
+    const fundoCaixa = numVal(document.getElementById('inputFundoCaixa').value);
+    const capitalGiro = numVal(document.getElementById('inputCapitalGiro').value);
     
     let currentMonth = (document.getElementById('filterMonth') ? document.getElementById('filterMonth').value : null) || new Date().toISOString().substring(0, 7);
     if (currentMonth === 'all') currentMonth = new Date().toISOString().substring(0, 7);

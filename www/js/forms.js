@@ -116,7 +116,7 @@ function saveService() {
     const phone = document.getElementById('sPhone').value.trim();
     const desc = descInput.value.trim();
     const notes = document.getElementById('sNotes').value.trim();
-    const val = parseFloat(valueInput.value) || 0;
+    const val = numVal(valueInput.value);
     const status = document.getElementById('sStatus').value;
     const pay = status === 'Pago' ? document.getElementById('sPay').value : '';
     const selectedDate = document.getElementById('sDate').value || today;
@@ -130,9 +130,9 @@ function saveService() {
         const width = row.querySelector('.item-width').value;
         const height = row.querySelector('.item-height').value;
         const mUnit = row.querySelector('.item-munit').value;
-        const unitPrice = parseFloat(row.querySelector('.item-price').value) || 0;
-        const qty = parseFloat(row.querySelector('.item-qty').value) || 1;
-        const subtotal = parseFloat(row.querySelector('.item-subtotal').value) || (unitPrice * qty);
+        const unitPrice = numVal(row.querySelector('.item-price').value);
+        const qty = numVal(row.querySelector('.item-qty').value) || 1;
+        const subtotal = numVal(row.querySelector('.item-subtotal').value) || (unitPrice * qty);
 
         if (type || subtotal > 0) {
             items.push({ type, width, height, mUnit, unitPrice, qty, subtotal });
@@ -146,8 +146,14 @@ function saveService() {
         return;
     }
 
+    // Validação monetária: bloqueia save se algum campo de valor contiver string inválida
+    if (!validarCampoValorMonetario(valueInput) ||
+        !validarCampoValorMonetario(document.getElementById('sLabor'))) {
+        return;
+    }
+
     const laborInput = document.getElementById('sLabor');
-    const labor = parseFloat(laborInput ? laborInput.value : 0) || 0;
+    const labor = numVal(laborInput ? laborInput.value : 0);
 
     let existing = editId ? window.appDataRaw.services.find(s => s.id === parseInt(editId)) : null;
     let item = {
@@ -211,11 +217,15 @@ function saveExpense() {
 
     const editId = document.getElementById('gEditId').value;
     const desc = descInput.value.trim();
-    const val = parseFloat(valInput.value);
+    const val = numVal(valInput.value);
     const date = document.getElementById('gDate').value || today;
     const cat = document.getElementById('gCat').value;
 
     let temErro = false;
+
+    if (!validarCampoValorMonetario(valInput)) {
+        temErro = true;
+    }
 
     if (!desc) {
         destacarCampoErro(descInput, 'Informe a descrição do gasto.');
@@ -276,11 +286,11 @@ function addServiceItem(data = null) {
         <div class="item-row-calc">
             <div class="field-group">
                 <label>Largura</label>
-                <input type="number" step="0.01" class="item-width" placeholder="0.00" value="${widthVal}" oninput="recalcularTotaisServico(false)">
+                <input type="text" inputmode="decimal" class="item-width" placeholder="0.00" value="${widthVal}" oninput="filtrarEntradaMonetaria(this); recalcularTotaisServico(false)">
             </div>
             <div class="field-group">
                 <label>Comp / Alt</label>
-                <input type="number" step="0.01" class="item-height" placeholder="0.00" value="${heightVal}" oninput="recalcularTotaisServico(false)">
+                <input type="text" inputmode="decimal" class="item-height" placeholder="0.00" value="${heightVal}" oninput="filtrarEntradaMonetaria(this); recalcularTotaisServico(false)">
             </div>
             <div class="field-group">
                 <label>Unidade</label>
@@ -292,15 +302,15 @@ function addServiceItem(data = null) {
             </div>
             <div class="field-group">
                 <label>Preço Un. (R$)</label>
-                <input type="number" step="0.01" class="item-price" placeholder="0.00" value="${unitPriceVal}" oninput="recalcularTotaisServico(false)">
+                <input type="text" inputmode="decimal" class="item-price" placeholder="0.00" value="${unitPriceVal}" oninput="filtrarEntradaMonetaria(this); recalcularTotaisServico(false)">
             </div>
             <div class="field-group">
                 <label>Qtd</label>
-                <input type="number" step="0.01" min="0.01" class="item-qty" placeholder="1" value="${qtyVal}" oninput="recalcularTotaisServico(false)">
+                <input type="text" inputmode="decimal" class="item-qty" placeholder="1" value="${qtyVal}" oninput="filtrarEntradaMonetaria(this); recalcularTotaisServico(false)">
             </div>
             <div class="field-group">
                 <label>Subtotal (R$)</label>
-                <input type="number" step="0.01" class="item-subtotal" placeholder="0.00" value="${subtotalVal ? subtotalVal.toFixed(2) : ''}" oninput="recalcularTotaisServico(true)">
+                <input type="text" inputmode="decimal" class="item-subtotal" placeholder="0.00" value="${subtotalVal ? subtotalVal.toFixed(2) : ''}" oninput="filtrarEntradaMonetaria(this); recalcularTotaisServico(true)">
             </div>
             <div class="field-group btn-container">
                 <button type="button" class="btn-remove-item" onclick="removeServiceItem('${itemId}')">🗑️</button>
@@ -341,11 +351,11 @@ function recalcularTotaisServico(isSubtotalManual = false) {
         const qtyInput = row.querySelector('.item-qty');
         const subtotalInput = row.querySelector('.item-subtotal');
 
-        const width = parseFloat(widthInput?.value) || 0;
-        const height = parseFloat(heightInput?.value) || 0;
+        const width = numVal(widthInput?.value);
+        const height = numVal(heightInput?.value);
         const mUnit = unitSelect?.value || 'm';
-        const price = parseFloat(priceInput?.value) || 0;
-        const qty = parseFloat(qtyInput?.value) || 1;
+        const price = numVal(priceInput?.value);
+        const qty = numVal(qtyInput?.value) || 1;
 
         if (!isSubtotalManual && price > 0) {
             let fatorMedida = 1;
@@ -382,7 +392,7 @@ function recalcularTotaisServico(isSubtotalManual = false) {
             totalGeral += subtotal;
             teveSubtotalCalculado = true;
         } else {
-            const subtotalManual = parseFloat(subtotalInput?.value) || 0;
+            const subtotalManual = numVal(subtotalInput?.value);
             if (subtotalManual > 0) {
                 totalGeral += subtotalManual;
                 teveSubtotalCalculado = true;
@@ -391,7 +401,7 @@ function recalcularTotaisServico(isSubtotalManual = false) {
     });
 
     const laborInput = document.getElementById('sLabor');
-    const labor = parseFloat(laborInput ? laborInput.value : 0) || 0;
+    const labor = numVal(laborInput ? laborInput.value : 0);
     if (labor > 0) {
         totalGeral += labor;
         teveSubtotalCalculado = true;
@@ -474,7 +484,7 @@ function sugerirPrecoItemEstoque(inputElement) {
         if (row) {
             const priceInput = row.querySelector('.item-price');
             const unitSelect = row.querySelector('.item-munit');
-            if (priceInput && (!priceInput.value || parseFloat(priceInput.value) === 0)) {
+            if (priceInput && numVal(priceInput.value) === 0) {
                 if (match.salePrice > 0) {
                     priceInput.value = match.salePrice;
                 } else if (match.costPrice > 0) {

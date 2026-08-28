@@ -1,5 +1,5 @@
 // Service Worker — Controle do Negócio PWA
-const CACHE_NAME = 'controle-negocio-v4.0.1';
+const CACHE_NAME = 'controle-negocio-v4.3.0';
 
 const STATIC_ASSETS = [
     './',
@@ -24,6 +24,7 @@ const STATIC_ASSETS = [
     './js/pdf.js',
     './js/privacy.js',
     './js/render.js',
+    './js/trash.js',
     './js/utils.js',
     './js/whatsapp.js'
 ];

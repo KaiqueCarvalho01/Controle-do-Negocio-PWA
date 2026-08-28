@@ -167,6 +167,15 @@ function handleImportFile(event) {
                 importedQuick = [...importedQuick, ...data.entries];
             }
 
+            // Sanatização: corrige 'val' em string/ausente dos backups antigos para
+            // número, evitando quebrar as somas de recebido/pendente após a importação.
+            if (typeof normalizarRegistros === 'function') {
+                importedServices = normalizarRegistros(importedServices, normalizarServico).list;
+                importedExpenses = normalizarRegistros(importedExpenses, normalizarDespesa).list;
+                importedQuick = normalizarRegistros(importedQuick, normalizarLancamento).list;
+                importedInventory = normalizarRegistros(importedInventory, normalizarEstoque).list;
+            }
+
             if (importedServices.length === 0 && importedExpenses.length === 0 && importedQuick.length === 0 && importedInventory.length === 0) {
                 alert('Atenção: O arquivo de backup selecionado não contém nenhum registro válido.');
                 event.target.value = '';

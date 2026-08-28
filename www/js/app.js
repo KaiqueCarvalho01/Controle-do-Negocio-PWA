@@ -77,6 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
         checkAppLockStatus();
     }
 
+    // Notificações WEB (navegador/PWA) - fallback do plugin nativo do Cordova.
+    // No APK o fluxo nativo (initNotifications/deviceready) é quem assume.
+    if (typeof initWebNotifications === 'function') {
+        initWebNotifications();
+    }
+
     // Define a data de hoje por padrão em todos os inputs do tipo date
     document.querySelectorAll('input[type=date]').forEach(x => x.value = today);
     
@@ -86,6 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializa o IndexedDB e carrega os registros
     initDB(() => {
         carregarDados();
+        // Purga da lixeira: remove itens que já passaram dos 3 dias de retenção
+        if (typeof limparLixeiraVencida === 'function') {
+            limparLixeiraVencida();
+        }
         if (window.cordova) {
             document.addEventListener('deviceready', initNotifications, false);
         }
@@ -172,6 +182,24 @@ function carregarDados(callback) {
         let expenses = data.expenses;
         let quick = data.quickEntries;
 
+        // Sanatização retrocompatível: converte 'val' em string/ausente de backups
+        // antigos ou dados legados para número, e persiste a correção automaticamente.
+        if (typeof normalizarRegistros === 'function') {
+            const rS = normalizarRegistros(services, normalizarServico);
+            const rE = normalizarRegistros(expenses, normalizarDespesa);
+            const rQ = normalizarRegistros(quick, normalizarLancamento);
+            const rI = normalizarRegistros(data.inventory, normalizarEstoque);
+            data.services = rS.list; data.expenses = rE.list;
+            data.quickEntries = rQ.list; data.inventory = rI.list;
+            services = data.services; expenses = data.expenses; quick = data.quickEntries;
+
+            if (rS.changed || rE.changed || rQ.changed || rI.changed) {
+                if (typeof dbSaveAll === 'function') {
+                    dbSaveAll({ services: data.services, expenses: data.expenses, quickEntries: data.quickEntries, inventory: data.inventory });
+                }
+            }
+        }
+
         // Identifica serviços agendados para a data de hoje que ainda não foram concluídos
         const servicosHoje = services.filter(x => x.date === today && x.status !== 'Pago');
         const banner = document.getElementById('todayBanner');
@@ -247,9 +275,9 @@ function calcularTotais() {
     let services = window.appDataFiltered.services;
     let expenses = window.appDataFiltered.expenses;
 
-    let totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + x.val, 0);
-    let totalPending = services.filter(x => x.status === 'Agendado' || x.status === 'Realizado').reduce((s, x) => s + x.val, 0);
-    let totalOut = expenses.reduce((s, x) => s + x.val, 0);
+    let totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + numVal(x.val), 0);
+    let totalPending = services.filter(x => x.status === 'Agendado' || x.status === 'Realizado').reduce((s, x) => s + numVal(x.val), 0);
+    let totalOut = expenses.reduce((s, x) => s + numVal(x.val), 0);
 
     document.getElementById('totalIn').textContent = money(totalIn);
     document.getElementById('totalPending').textContent = money(totalPending);
@@ -290,6 +318,12 @@ function executarDesfazerExclusao() {
     if (!ultimoItemExcluido) return;
 
     const { storeName, item } = ultimoItemExcluido;
+    // O item também foi para a lixeira (retenção de 3 dias). Ao desfazer,
+    // remove o envelope da lixeira para não deixar cópia duplicada lá.
+    if (typeof removerItemLixeira === 'function') {
+        removerItemLixeira(storeName + ':' + item.id);
+    }
+
     dbSave(storeName, item, () => {
         const toast = document.getElementById('undoToast');
         if (toast) toast.classList.add('hidden');
@@ -300,7 +334,7 @@ function executarDesfazerExclusao() {
 }
 
 /**
- * Remove um registro do IndexedDB com confirmação e botão de desfazer.
+ * Remove um registro do IndexedDB com confirmação, botão de desfazer e lixeira de 3 dias.
  * @param {string} storeName Nome da store ('services' ou 'expenses').
  * @param {number} id ID do registro.
  * @param {string} itemDesc Descrição para confirmação no alerta.
@@ -313,6 +347,12 @@ function confirmDelete(storeName, id, itemDesc) {
 
         if (storeName === 'services' && itemOriginal?.stockDebited && typeof estornarEstoqueDoServico === 'function') {
             estornarEstoqueDoServico(itemOriginal);
+        }
+
+        // Envia para a lixeira (retenção de 3 dias) ANTES de apagar do banco.
+        // A cópia guarda o estado pós-estorno, então restaurar = re-save equivalente ao desfazer.
+        if (itemOriginal && typeof moverParaLixeira === 'function') {
+            moverParaLixeira(storeName, itemOriginal);
         }
 
         dbDelete(storeName, id, () => {

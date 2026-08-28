@@ -22,7 +22,7 @@ Aplicativo **mobile híbrido + PWA** para **autônomos, MEIs e prestadores de se
 | Camada | Tecnologia |
 | :--- | :--- |
 | Frontend | HTML5 + CSS3 + **Vanilla JS** (zero frameworks/bundlers) |
-| Banco de dados | **IndexedDB** (`ControleNegocioDB`, versão **3**) |
+| Banco de dados | **IndexedDB** (`ControleNegocioDB`, versão **4**; store `trash` para lixeira de 3 dias) |
 | Config/estado pequeno | `localStorage` (notas, metas, perfil, PIN, snapshots, timestamps) |
 | Criptografia | Web Crypto API — **AES-256-GCM + PBKDF2** (backup) e **SHA-256 com salt** (PIN/respostas) |
 | Offline | **Service Worker** (`CACHE_NAME 'controle-negocio-v4.0.1'`) |
@@ -72,7 +72,7 @@ Controle-do-Negocio-PWA/
     └── js/                   # 17 scripts globais (sem modules/IIFE)
         ├── crypto.js         # AES-256-GCM + PBKDF2 + hash SHA-256 com salt
         ├── privacy.js        # Lock/PIN, recuperação, LGPD (anonimizar, portabilidade)
-        ├── database.js       # Camada IndexedDB (initDB/dbSave/dbDelete/dbGetAll)
+        ├── database.js       # Camada IndexedDB (initDB/dbSave/dbDelete/dbGetAll/dbSaveAll/dbTrash*)
         ├── backup.js         # Export/import cripto, snapshot+undo, backup silencioso, wipe
         ├── notifications.js  # Canais, permissão 13+, agendamento de alarmes
         ├── calendar.js       # Agenda nativa (plugin) / fallback Google Calendar
@@ -81,7 +81,7 @@ Controle-do-Negocio-PWA/
         ├── decimo.js         # 13º salário (3 modos)
         ├── inventory.js      # Estoque: CRUD, consumo, débito/estorno
         ├── pdf.js            # Gera PDF nativo manual (MinimalPdfBuilder, sem libs)
-        ├── utils.js          # money(), datas, validação visual, modo privacidade
+        ├── utils.js          # money(), datas, validação visual, privacidade, numVal + normalizadores
         ├── whatsapp.js       # openWhatsApp(service) — link wa.me
         ├── forms.js          # Formulários serviço/gasto, cálculo de medidas, datalists
         ├── modals.js         # Modais de status, caixa/giro, perfil, drawer
@@ -98,7 +98,7 @@ Por isso os módulos usam guardas defensivas tipo `typeof fn === 'function'` ant
 
 ## 4. Modelos de Dados
 
-### IndexedDB — `ControleNegocioDB` v3 (object stores: `services`, `expenses`, `quickEntries`, `inventory` — todos keyPath `id`)
+### IndexedDB — `ControleNegocioDB` v4 (object stores: `services`, `expenses`, `quickEntries`, `inventory` — keyPath `id`; `trash` — keyPath `tid` = `"<store>:<id>"`)
 
 ```js
 // Serviço / Orçamento (store 'services')
@@ -163,15 +163,18 @@ Por isso os módulos usam guardas defensivas tipo `typeof fn === 'function'` ant
 
 ### `app.js` (orquestrador)
 - Globais: `activeTab` (`services|quotes|expenses|all`), `serviceSubFilter` (`pending|paid`), `allSubFilter` (`list|charts`), `deferredPwaPrompt`.
-- `DOMContentLoaded`: registra SW (`./sw.js`) e força recarga quando nova versão ativa; `initMaskValues()`; `checkAppLockStatus()`; popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); if (cordova) deviceready → initNotifications })`.
+- `DOMContentLoaded`: registra SW (`./sw.js`) e força recarga quando nova versão ativa; `initMaskValues()`; `checkAppLockStatus()`; `initWebNotifications()` (navegador/PWA — pede permissão e arma lembretes da sessão; APK ignora); popula `input[type=date]` com `today`; `popularMeses()` (select de meses — ano atual e anterior); `initDB(() => { carregarDados(); limparLixeiraVencida(); if (cordova) deviceready → initNotifications })`.
 - `beforeinstallprompt`/`appinstalled` → botão "Instalar Aplicativo" no drawer (`drawerInstallPwa`); `instalarPwaApp()`.
-- **`carregarDados(callback)`** — coração do app: `dbGetAll` → aplica filtro de mês (`filterMonth`, prefixo `YYYY-MM`), grava `window.appDataFiltered` e `window.appDataRaw`, banner de serviços de hoje, banner de backup >3d (`last_manual_export`), dispara backup silencioso se >24h, popula datalists de clientes/estoque, `calcularTotais()` e `renderView()`.
+- **`carregarDados(callback)`** — coração do app: `dbGetAll` → **sanatização retrocompatível** (converte `val` em string/ausente para número nas 4 listas e persiste via `dbSaveAll` se algo mudou — corrige dados legados "corrompidos" sozinho) → aplica filtro de mês (`filterMonth`, prefixo `YYYY-MM`), grava `window.appDataFiltered` e `window.appDataRaw`, banner de serviços de hoje, banner de backup >3d (`last_manual_export`), dispara backup silencioso se >24h, popula datalists de clientes/estoque, `calcularTotais()` e `renderView()`.
 - `calcularTotais()`: Recebido = soma de `status==='Pago'`; Pendente = `Agendado|Realizado`; Gastos = despesas; Lucro = in − out.
-- Exclusão com desfazer: `confirmDelete(store, id, desc)` (guarda cópia em `ultimoItemExcluido`, estaborna estoque se `stockDebited`, toast 6 s → `executarDesfazerExclusao()`).
+- Exclusão com desfazer + lixeira: `confirmDelete(store, id, desc)` (guarda cópia em `ultimoItemExcluido`, estorna estoque se `stockDebited`, **move cópia pós-estorno para a lixeira** via `moverParaLixeira`, toast 6 s → `executarDesfazerExclusao()` que **remove o envelope da lixeira** e re-salva).
 - `switchTab`/`switchServiceSubFilter`/`switchAllSubFilter`.
 
 ### `database.js`
-API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`, `dbDelete(store, id, cb)`, `dbGetAll(cb)` retorna `{services, expenses, quickEntries, inventory}` (4 stores numa transaction).
+API mínima: `initDB(cb)` (v4 — cria as 4 stores + `trash` na falta), `dbSave(store, item, cb)`, `dbDelete(store, id, cb)`, `dbGetAll(cb)` retorna `{services, expenses, quickEntries, inventory}` (4 stores numa transaction), `dbSaveAll(data, cb)` grava as 4 listas numa transação (usado pela sanatização). Lixeira: `dbTrashPut(entry, cb)`, `dbTrashGetAll(cb)`, `dbTrashDelete(tid, cb)`.
+
+### `trash.js`
+Lixeira de **3 dias** (`TRASH_TTL_MS`). `moverParaLixeira(store, record)` — deep-copy `JSON` do registro + `deletedAt` em envelope `{tid, storeName, id, deletedAt, data}` (store `trash`). `restaurarItemLixeira(tid)` — re-save no local original (notas → localStorage; serviços re-agendam notificação; notas re-agendam lembrete) e remove o envelope. `excluirDefinitivamenteItemLixeira(tid)` / `esvaziarLixeira()` — descartam envelopes (efeitos destrutivos já aplicados na exclusão). `limparLixeiraVencida()` — purga >3 dias (boot + ao renderizar). UI: drawer "Lixeira (3 dias)" → `modalTrash` (`openTrashModal`/`closeTrashModal`/`renderTrashList`). Restauração = mesmo equivalente do desfazer via toast (cópia pós-estorno tem `stockDebited=false`).
 
 ### `utils.js`
 - `money(v)` → `R$` via `Intl.NumberFormat('pt-BR', {currency:'BRL'})`.
@@ -179,6 +182,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 - `formatDateToBR()` (`YYYY-MM-DD` → `DD/MM/YYYY`, idempotente).
 - Validação visual: `destacarCampoErro(input, msg)`, `removerMensagemErro`, `limparTodosErrosFormulario(formId)` (classe `input-error` + `.error-msg`).
 - **Modo privacidade** (mascarar valores): `maskValuesEnabled`, `initMaskValues()`, `toggleMaskValues()` → `body.blur-values` (CSS esfumaça `.value-maskable`), botão `#btnMask` `👁️`/`🙈`.
+- **Normalização monetária** (retrocompatibilidade/anti-corrupção): `numVal(v)` — converte `val` número/string para número seguro, nunca NaN. Aceita `150`/`150.10` (ponto decimal), `150,10` (vírgula), `1.234,56` e `R$ 1.234,56` (ponto milhar + vírgula decimal); string inválida → 0. Normalizadores por tipo (retornam o MESMO objeto se nada mudou; cópia corrigida se mudou): `normalizarServico` (`val`, `labor`), `normalizarDespesa`/`normalizarLancamento` (`val`), `normalizarEstoque` (`qty`, `minQty`, `costPrice`, `salePrice`). `normalizarRegistros(lista, fn) → {list, changed}`. **Regra: TODAS as somas de `val` devem usar `numVal(x.val)`** (backups antigos podem trazer string no `val` → soma vira concatenação `"0150.0075.00"` ou `NaN`).
 
 ### `render.js`
 - `clientSortFilter` global (`spent|alpha|recent|oldest`).
@@ -191,6 +195,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 
 ### `forms.js`
 - Formulários serviço/despesa: `openServiceForm(editItem?)`, `openExpenseForm(editItem?, prefillData?)`, `closeAllForms()`.
+- **Regra de entrada monetária**: campos de dinheiro/dimensão são `type="text"` + `inputmode="decimal"` (teclado numérico com vírgula no mobile) + `oninput="filtrarEntradaMonetaria(this)"` — nunca `type="number"` (no Chrome a vírgula é descartada silenciosamente e "150,10" vira "15010"/0). O filtro remove letras/símbolos na hora (strings não entram) e mostra `Somente números, vírgula ou ponto` se algo inválido for digitado/colado. No save, `validarCampoValorMonetario(input)` bloqueia e destaca erro se ainda houver conteúdo inválido; parse com `numVal`. Afetados: `#sValue`, `#sLabor`, `#gValue`, itens (`.item-width/height/price/qty/subtotal`), `#invItem*`, caixa e 13º (helpers em utils.js §6.1). `numVal` aceita `150,10`, `150.10` (ponto decimal), `1.234,56` e `R$ 1.234,56`.
 - `togglePayField()`: campo pagamento só visível quando status `Pago`.
 - **`saveService()`**: única validação = `client`. IDs = `Date.now()`. Log de datas de fase imutável ao editar (só preenche a data da fase atual se ainda não existe). Efeitos: `agendarNotificacaoServico`, prompt de agenda nativa se `Agendado` + plugin `window.plugins.calendar`, **estoque**: se `Realizado`/`Pago` e o registro antigo já estava debitado, estorna o consumo antigo (`estornarEstoqueDoServico(existing)`) antes de debitar (`debitarEstoqueDoServico(item)`) — evita débito duplicado ao editar sem mudanças; `estornarEstoqueDoServico(existing)` se voltar para Orçamento/Agendado e tinha `stockDebited`.
 - **`recalcularTotaisServico(isSubtotalManual)`** — motor de preço: subtotal manual tem precedência; senão com 2 dimensões usa **área `w×h`** se o item do estoque for unidade `m²`, senão **perímetro/linear `w+h`**; 1 dimensão = linear com conversão (cm÷100, mm÷1000); `subtotal = price × qty × fatorMedida`; soma `labor` no total.
@@ -208,7 +213,7 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 
 ### `backup.js`
 - `exportarBackup()` → envelope **v3** `{version:3, exportedAt, services, expenses, quickEntries, inventory, notes, caixaConfig, companyProfile}`; teste de integridade in-memory (stringify/parse); senha opcional via `prompt()` → criptografa (`encryptBackupData`); Cordova: grava em `cordova.file.cacheDirectory` + `socialsharing.shareWithOptions`; browser: Web Share API (AbortError = sucesso) ou `<a download>`; seta `last_manual_export`, `agendarLembreteBackup()`, `carregarDados()`.
-- `handleImportFile(event)` — lê/parseia; auto-detecta `__encrypted` → pede senha (`decryptBackupData`); normaliza legado (aceita v1/v2/v3; `data.entries` → quickEntries); **snapshot** `emergency_backup_snapshot` ANTES de apagar; transação limpa + recria as 4 stores; restaura notes/caixa/profile do localStorage; `reagendarTodasNotas()`; em `onerror` faz **rollback** a partir do snapshot.
+- `handleImportFile(event)` — lê/parseia; auto-detecta `__encrypted` → pede senha (`decryptBackupData`); normaliza legado (aceita v1/v2/v3; `data.entries` → quickEntries); **sanatiza as 4 listas** (`normalizarRegistros`) antes de gravar — regra: valores monetários ficam SEMPRE numéricos no banco; **snapshot** `emergency_backup_snapshot` ANTES de apagar; transação limpa + recria as 4 stores; restaura notes/caixa/profile do localStorage; `reagendarTodasNotas()`; em `onerror` faz **rollback** a partir do snapshot.
 - `desfazerUltimaImportacao()` — restaura o snapshot (consumido uma vez) e o remove.
 - `realizarBackupSilencioso()` — auto diário/24 h; salva o envelope v3 **em texto puro** (cópia interna do app, sem senha — criptografia fica só para a exportação manual) em `auto_backup.json` no `cordova.file.dataDirectory`; browser → `auto_backup_browser_snapshot`; grava `last_auto_backup` ao concluir.
 - `limparTodosOsDadosLocais()` — LGPD/descarte: confirma 2x (exige digitar `"APAGAR TUDO"`), `localStorage.clear()`, `sessionStorage.clear()`, `indexedDB.deleteDatabase`, limpa caches do SW, reload.
@@ -232,14 +237,16 @@ API mínima: `initDB(cb)` (v3, cria stores na falta), `dbSave(store, item, cb)`,
 
 ### `notes.js`
 - Notas em `localStorage` (`app_notes_data`): `{id, text, date, time, done, createdAt}`.
-- `salvarNovaNota`, `toggleNotaConcluida` (cancela/reagenda alarme), `excluirNota`, `agendarLembreteNota` (ID = últimas 8 casas do id, canal `servicos_lembretes`, hora default 09:00), `reagendarTodasNotas()` (re-cria todos os alarmes pendentes — usado no boot e pós-importação).
+- `salvarNovaNota`, `toggleNotaConcluida` (cancela/reagenda alarme), `excluirNota`, `agendarLembreteNota` (ID = últimas 8 casas do id, canal `servicos_lembretes`, hora default 09:00; no navegador/PWA usa `agendarNotifWeb('note'+id)`), `reagendarTodasNotas()` (re-cria todos os alarmes pendentes — usado no boot e pós-importação).
 
 ### `notifications.js`
-- `initNotifications()` (no `deviceready`): pede permissão POST_NOTIFICATIONS (Android 13+/API 33) → só agenda **dentro do callback de concessão**; cria 3 canais.
+- Duas camadas: **APK/Cordova** = plugin nativo (alarme exato, funciona fechado); **Navegador/PWA** = API Web Notification (timers da sessão aberta; browser não agenda alarme em segundo plano). Helpers `notifCordovaDisponivel()`, `webNotifPermitida()`, `pedirPermissaoNotificacao(cb)`, `mostrarNotifWeb`, `agendarNotifWeb(chave, dataAlvo, título, texto)` (parou na sessão → disparo único via `__webNotifDisparados`; futuro → `setTimeout` em `__webNotifTimers`) e `cancelarNotifWeb(chave)`.
+- `initWebNotifications()` (só quando NÃO há Cordova): pede permissão → dá `granted` → `reagendarServicosFuturos`, `agendarLembreteBackup`, `verificarNotificacoesAoIniciar`, `reagendarTodasNotas` + `visibilitychange` (refoca → re-armar pendências).
+- `initNotifications()` (no `deviceready`, APK): pede permissão POST_NOTIFICATIONS (Android 13+/API 33) → só agenda **dentro do callback de concessão**; cria 3 canais.
 - Canais: `servicos_lembretes` (importância 4, vibração), `alertas_financeiros` (3, vibração), `sistema_backup` (3, sem vibração).
-- `agendarNotificacaoServico(servico)` — serviço `Agendado` → alarme na data (`scheduledDate || date`) **no horário do campo `time` (HH:MM)**; sem horário, fallback 08:00; não-Agendado → `cancel`.
-- `agendarLembreteBackup()` — recorrente 12:00 diário (ID fixo `999901`).
-- `verificarNotificacoesAoIniciar()` — 2,5 s após boot, alerta serviço `Realizado` não pago (ID fixo `999902`).
+- `agendarNotificacaoServico(servico)` — serviço `Agendado` → alarme na data (`scheduledDate || date`) **no horário do campo `time` (HH:MM)**; sem horário, fallback 08:00; não-Agendado → `cancel` (nativo) / `cancelarNotifWeb('svc'+id)` (web). Web: timer da sessão.
+- `agendarLembreteBackup()` — recorrente 12:00 diário (ID fixo `999901`); web: próxima 12:00 (uma vez por sessão, chave `backup-diario`).
+- `verificarNotificacoesAoIniciar()` — 2,5 s após boot, alerta serviço `Realizado` não pago (ID fixo `999902`); web: `mostrarNotifWeb`.
 - `reagendarServicosFuturos()` — re-cria alarmes de todos `Agendado` (recuperação pós-reboot — não há persistência de alarme no plugin).
 
 ### `calendar.js`
@@ -312,7 +319,7 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 
 > Todo e qualquer alteração de código **deve** ser retrocompatível com versões anteriores do app. Bases de dados produzidas por versões antigas **nunca** podem quebrar ou perder informação.
 
-- **IndexedDB (`ControleNegocioDB`)**: nunca remover/renomear object stores (`services`, `expenses`, `quickEntries`, `inventory`) nem mudar o `keyPath` (`id`). Para adicionar novos campos, itens novos são opcionais e sempre tratados com fallback (`|| 0`, `|| ''`, `Array.isArray(...)`, `typeof === 'undefined'`). Aumentar `version` do banco só com `onupgradeneeded` que **cria** dados sem destruir os existentes.
+- **IndexedDB (`ControleNegocioDB`)**: nunca remover/renomear object stores (`services`, `expenses`, `quickEntries`, `inventory`, `trash`) nem mudar os `keyPath` (`id`, `tid`). Para adicionar novos campos, itens novos são opcionais e sempre tratados com fallback (`|| 0`, `|| ''`, `Array.isArray(...)`, `typeof === 'undefined'`). Aumentar `version` do banco só com `onupgradeneeded` que **cria** dados sem destruir os existentes.
 - **Registros**: ao salvar/editar, preservar todos os campos legados mesmo que não sejam mais usados na UI (ex.: o objeto `services` deve continuar gravando `quoteDate/scheduledDate/doneDate/paidDate`, `pay`, `labor`, `stockDebited`, `items[]` etc.).
 - **localStorage**: não renomear/remover chaves existentes (`app_notes_data`, `app_caixa_config`, `app_company_profile`, `app_pin_security_data`, `app_mask_values`, `last_manual_export`, `last_auto_backup`, `emergency_backup_snapshot`, `auto_backup_browser_snapshot`). Ao mudar formato, migrar na leitura (ver `getAllCaixaConfigs()` que migra o formato legado plano de `app_caixa_config` para `{default: {...}}`).
 - **Variáveis globais**: manter nomes e assinaturas de funções/variaveis já existentes. Novos recursos **adicionam** funções novas; não renomeiam/removem as atuais, pois o HTML chama via `onclick` inline e módulos dependem dos globals (`window.appDataRaw`, `window.appDataFiltered`, `activeTab`, `serviceSubFilter`, `allSubFilter`, `db`, `today`, etc.).
@@ -329,11 +336,10 @@ Regras de tempo: banner avisa se > **3 dias** sem exportação manual; backup si
 ## 8. Bugs / Peculiaridades Conhecidas
 
 1. **PDF perdroso**: acentos/emoji removidos, sem paginação, coordenadas fixas (sobreposição em textos longos).
-2. **Sem "lixeira de 3 dias" real** — exclusão é definitiva com undo via toast (6 s) e, pom importação, snapshot de uso único.
-3. **PIN**: sem limite de tentativas (força bruta na tela de bloqueio); hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage.
-4. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
-5. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
-6. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
+2. **PIN**: sem limite de tentativas (força bruta na tela de bloqueio); hash SHA-256 salgado (não PBKDF2) para 4 dígitos = fraco contra extração de localStorage.
+3. `saveService()` coleta itens com `querySelectorAll('.item-row')` sem escopo.
+4. README lista `descriptografar.html`/`descriptografar.js` e manual_do_usuario/manual_tecnico em outro repo (estes arquivos **não existem** neste repositório).
+5. Branches de trabalho: `main` (produção) e `security` (desenvolvimento ativo).
 
 ---
 
@@ -345,10 +351,19 @@ DOMContentLoaded (app.js)
  ├─ serviceWorker.register('./sw.js') → força update/reload em nova versão
  ├─ initMaskValues()  (utils)
  ├─ checkAppLockStatus()  (privacy — tela PIN se habilitado)
+ ├─ initWebNotifications()  (notifications — SÓ sem Cordova)
+ │   └─ permissão Notification → granted:
+ │       ├─ reagendarServicosFuturos()
+ │       ├─ agendarLembreteBackup()
+ │       ├─ verificarNotificacoesAoIniciar()
+ │       ├─ reagendarTodasNotas()
+ │       └─ visibilitychange → reagendarServicosFuturos()
  ├─ popularMeses()
  └─ initDB(cb=carregarDados)  (database)
-     ├─ carregarDados() → dbGetAll → appDataFiltered/appDataRaw → banners
+     ├─ carregarDados() → dbGetAll → SANATIZA (numVal nas 4 listas + dbSaveAll se mudou)
+     │                    → appDataFiltered/appDataRaw → banners
      │                    → datalists → calcularTotais → renderView()
+     ├─ limparLixeiraVencida()  (trash — purga itens >3 dias)
      └─ se cordova: deviceready → initNotifications()
          ├─ permissão POST_NOTIFICATIONS (Android 13+)
          ├─ configurarCanais()

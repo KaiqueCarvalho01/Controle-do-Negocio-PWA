@@ -131,6 +131,13 @@
                     <small>Transparência, dados locais e direitos</small>
                 </div>
             </div>
+            <div class="drawer-item" onclick="openTrashModal(); closeDrawer();">
+                <span class="drawer-icon">🗃️</span>
+                <div class="drawer-text">
+                    <b>Lixeira (3 dias)</b>
+                    <small>Recuperar itens excluídos</small>
+                </div>
+            </div>
             <div class="drawer-item" onclick="limparTodosOsDadosLocais(); closeDrawer();" style="color: #c62828;">
                 <span class="drawer-icon">🗑️</span>
                 <div class="drawer-text">
@@ -217,12 +224,12 @@
             <div class="row" style="margin-top: 12px;">
                 <div>
                     <label style="font-size: 12px; color: #555; font-weight: bold;">Mão de Obra / Serviço (R$)</label>
-                    <input id="sLabor" type="number" step="0.01" placeholder="Ex: 80,00"
-                        oninput="recalcularTotaisServico(false)">
+                    <input id="sLabor" type="text" inputmode="decimal" placeholder="Ex: 80,00"
+                        oninput="filtrarEntradaMonetaria(this); recalcularTotaisServico(false)">
                 </div>
                 <div>
                     <label style="font-size: 12px; color: #555; font-weight: bold;">Valor Total Geral (R$)</label>
-                    <input id="sValue" type="number" step="0.01" placeholder="Total (R$)">
+                    <input id="sValue" type="text" inputmode="decimal" placeholder="Total (R$)" oninput="filtrarEntradaMonetaria(this)">
                 </div>
             </div>
 
@@ -265,7 +272,7 @@
             <input id="gDesc" placeholder="Descrição (ex: Material, Combustível)">
             <div class="row">
                 <input id="gDate" type="date">
-                <input id="gValue" type="number" step="0.01" placeholder="Valor (R$)">
+                <input id="gValue" type="text" inputmode="decimal" placeholder="Valor (R$)" oninput="filtrarEntradaMonetaria(this)">
             </div>
             <select id="gCat">
                 <option>Material</option>
@@ -338,7 +345,7 @@
                     <small
                         style="color: #666; font-size: 11px; display: block; margin-top: -2px; margin-bottom: 4px;">Sua
                         retirada pessoal planejada para este mês.</small>
-                    <input id="inputFundoCaixa" type="number" step="0.01" placeholder="Ex: 3000,00">
+                    <input id="inputFundoCaixa" type="text" inputmode="decimal" placeholder="Ex: 3000,00" oninput="filtrarEntradaMonetaria(this)">
                 </div>
 
                 <div class="field-group" style="margin: 14px 0 10px 0;">
@@ -346,7 +353,7 @@
                     <small
                         style="color: #666; font-size: 11px; display: block; margin-top: -2px; margin-bottom: 4px;">Teto
                         da reserva acumulada para manter a empresa segura.</small>
-                    <input id="inputCapitalGiro" type="number" step="0.01" placeholder="Ex: 10000,00">
+                    <input id="inputCapitalGiro" type="text" inputmode="decimal" placeholder="Ex: 10000,00" oninput="filtrarEntradaMonetaria(this)">
                 </div>
 
                 <div class="row form-actions" style="margin-top: 14px;">
@@ -484,16 +491,16 @@
                             <div style="flex: 1; min-width: 130px;">
                                 <label style="font-size: 11.5px; color: #555; display: block; margin-bottom: 2px;">Meta
                                     Total do Ano (R$):</label>
-                                <input id="inputMetaDecimo" type="number" step="0.01" placeholder="Ex: 3000,00"
+                                <input id="inputMetaDecimo" type="text" inputmode="decimal" placeholder="Ex: 3000,00"
                                     style="width: 100%; margin: 0; font-size: 13.5px; font-weight: bold;"
-                                    oninput="if(this.value){ document.getElementById('inputAporteMensalDecimo').value = (parseFloat(this.value)/12).toFixed(2); }">
+                                    oninput="filtrarEntradaMonetaria(this); if(this.value){ document.getElementById('inputAporteMensalDecimo').value = (numVal(this.value)/12).toFixed(2); }">
                             </div>
                             <div id="boxAporteMensalField" style="flex: 1; min-width: 130px;">
                                 <label style="font-size: 11.5px; color: #555; display: block; margin-bottom: 2px;">Meta
                                     / Aporte por Mês (R$):</label>
-                                <input id="inputAporteMensalDecimo" type="number" step="0.01" placeholder="Ex: 250,00"
+                                <input id="inputAporteMensalDecimo" type="text" inputmode="decimal" placeholder="Ex: 250,00"
                                     style="width: 100%; margin: 0; font-size: 13.5px; font-weight: bold;"
-                                    oninput="if(this.value){ document.getElementById('inputMetaDecimo').value = (parseFloat(this.value)*12).toFixed(2); }">
+                                    oninput="filtrarEntradaMonetaria(this); if(this.value){ document.getElementById('inputMetaDecimo').value = (numVal(this.value)*12).toFixed(2); }">
                             </div>
                         </div>
 
@@ -572,7 +579,7 @@
                         <label id="lblInvQty"
                             style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Quantidade em
                             Estoque (un):</label>
-                        <input id="invItemQty" type="number" step="0.01" placeholder="0" style="margin: 0;">
+                        <input id="invItemQty" type="text" inputmode="decimal" placeholder="0" style="margin: 0;" oninput="filtrarEntradaMonetaria(this)">
                     </div>
                     <div style="flex: 1;">
                         <label
@@ -599,7 +606,7 @@
                         <label id="lblInvMinQty"
                             style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Estoque Mínimo
                             (un):</label>
-                        <input id="invItemMinQty" type="number" step="0.01" placeholder="Alerta" style="margin: 0;"
+                        <input id="invItemMinQty" type="text" inputmode="decimal" placeholder="Alerta" style="margin: 0;" oninput="filtrarEntradaMonetaria(this)"
                             title="Gera aviso se o saldo for menor ou igual a esse valor">
                     </div>
                 </div>
@@ -609,13 +616,13 @@
                         <label id="lblInvCost"
                             style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Preço de Custo
                             (por un):</label>
-                        <input id="invItemCost" type="number" step="0.01" placeholder="0,00" style="margin: 0;">
+                        <input id="invItemCost" type="text" inputmode="decimal" placeholder="0,00" style="margin: 0;" oninput="filtrarEntradaMonetaria(this)">
                     </div>
                     <div style="flex: 1;">
                         <label id="lblInvSale"
                             style="font-size: 12px; color: #555; display: block; margin-bottom: 2px;">Preço de Venda
                             (por un):</label>
-                        <input id="invItemSale" type="number" step="0.01" placeholder="0,00" style="margin: 0;">
+                        <input id="invItemSale" type="text" inputmode="decimal" placeholder="0,00" style="margin: 0;" oninput="filtrarEntradaMonetaria(this)">
                     </div>
                 </div>
 
@@ -689,6 +696,32 @@
         <div id="undoToast" class="undo-toast hidden">
             <span id="undoToastMsg">Registro excluído.</span>
             <button type="button" id="undoToastBtn" onclick="executarDesfazerExclusao()">Desfazer</button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL DA LIXEIRA (RETENÇÃO DE 3 DIAS) -->
+        <!-- ========================================== -->
+        <div id="modalTrash" class="modal-overlay hidden" style="z-index: 1200;">
+            <div class="modal-card modal-card-large"
+                style="max-height: 90vh; display: flex; flex-direction: column; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; color: #1976d2;">🗃️ Lixeira (3 dias)</h3>
+                    <button type="button" class="btn-close-modal" onclick="closeTrashModal()">✕</button>
+                </div>
+                <div
+                    style="font-size: 12px; color: #475569; background: #f1f5f9; padding: 8px 10px; border-radius: 6px; margin-bottom: 10px;">
+                    Itens excluídos ficam aqui por <b>3 dias</b> e depois são removidos automaticamente. Use
+                    <b>Restaurar</b> para recuperar algo apagado por engano.
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                    <button type="button" class="danger" style="font-size: 12px; padding: 6px 12px;"
+                        onclick="esvaziarLixeira()">🗑️ Esvaziar Lixeira</button>
+                </div>
+                <!-- Lista de itens da lixeira -->
+                <div id="trashListContainer" style="flex: 1; overflow-y: auto; padding-right: 2px;">
+                    <!-- Preenchido via trash.js -->
+                </div>
+            </div>
         </div>
 
         <!-- ========================================== -->
@@ -926,6 +959,7 @@
     <script src="js/crypto.js"></script>
     <script src="js/privacy.js"></script>
     <script src="js/database.js"></script>
+    <script src="js/trash.js"></script>
     <script src="js/backup.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/calendar.js"></script>

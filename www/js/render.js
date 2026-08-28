@@ -112,8 +112,8 @@ function gerarHtmlGraficos() {
     const services = window.appDataFiltered.services || [];
     const expenses = window.appDataFiltered.expenses || [];
 
-    const totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + x.val, 0);
-    const totalOut = expenses.reduce((s, x) => s + x.val, 0);
+    const totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + numVal(x.val), 0);
+    const totalOut = expenses.reduce((s, x) => s + numVal(x.val), 0);
     const totalVolume = totalIn + totalOut;
 
     const percIn = totalVolume > 0 ? ((totalIn / totalVolume) * 100).toFixed(1) : 0;
@@ -121,7 +121,7 @@ function gerarHtmlGraficos() {
 
     const categorias = ['Material', 'Combustível', 'Ferramentas', 'Publicidade', 'Alimentação', 'Outros'];
     const rankingCategorias = categorias.map(cat => {
-        const totalCat = expenses.filter(x => x.cat === cat).reduce((s, x) => s + x.val, 0);
+        const totalCat = expenses.filter(x => x.cat === cat).reduce((s, x) => s + numVal(x.val), 0);
         const percentual = totalOut > 0 ? ((totalCat / totalOut) * 100).toFixed(1) : 0;
         return { cat, total: totalCat, percentual: Number(percentual) };
     }).filter(c => c.total > 0)
@@ -243,8 +243,8 @@ function renderView() {
                 const currentServices = window.appDataFiltered.services || [];
                 const currentExpenses = window.appDataFiltered.expenses || [];
 
-                const totalIn = currentServices.filter(x => x.status === 'Pago').reduce((s, x) => s + x.val, 0);
-                const totalOut = currentExpenses.reduce((s, x) => s + x.val, 0);
+                const totalIn = currentServices.filter(x => x.status === 'Pago').reduce((s, x) => s + numVal(x.val), 0);
+                const totalOut = currentExpenses.reduce((s, x) => s + numVal(x.val), 0);
                 const lucroMes = totalIn - totalOut;
 
                 const metaFundo = caixaConfig.fundoCaixa || 0;
@@ -261,7 +261,7 @@ function renderView() {
                             const m = s.date.substring(0, 7);
                             if (m < monthFilter) {
                                 if (!monthlyData[m]) monthlyData[m] = { in: 0, out: 0 };
-                                monthlyData[m].in += s.val;
+                                monthlyData[m].in += numVal(s.val);
                             }
                         }
                     });
@@ -271,7 +271,7 @@ function renderView() {
                             const m = e.date.substring(0, 7);
                             if (m < monthFilter) {
                                 if (!monthlyData[m]) monthlyData[m] = { in: 0, out: 0 };
-                                monthlyData[m].out += e.val;
+                                monthlyData[m].out += numVal(e.val);
                             }
                         }
                     });
@@ -487,11 +487,11 @@ function renderClientsList() {
         }
         clientMap[key].services.push(s);
         if (s.status === 'Pago') {
-            clientMap[key].totalPaid += (s.val || 0);
+            clientMap[key].totalPaid += numVal(s.val);
         } else if (s.status === 'Agendado' || s.status === 'Realizado') {
-            clientMap[key].totalPending += (s.val || 0);
+            clientMap[key].totalPending += numVal(s.val);
         }
-        clientMap[key].totalAll += (s.val || 0);
+        clientMap[key].totalAll += numVal(s.val);
 
         if (s.date) {
             if (!clientMap[key].latestDate || s.date > clientMap[key].latestDate) {

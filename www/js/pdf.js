@@ -194,7 +194,7 @@ function gerarPdfServico(servico) {
         }
 
         // Linha destacada de Mão de Obra (se preenchida > 0)
-        const valorMaoDeObra = parseFloat(servico.labor) || 0;
+        const valorMaoDeObra = numVal(servico.labor) || 0;
         if (valorMaoDeObra > 0) {
             pdf.setFillColor(243, 248, 243);
             pdf.rect(30, currentY - 14, 535, 19, 'F');
@@ -299,8 +299,8 @@ function gerarPdfExtrato() {
         const services = window.appDataFiltered.services || [];
         const expenses = window.appDataFiltered.expenses || [];
 
-        const totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + x.val, 0);
-        const totalOut = expenses.reduce((s, x) => s + x.val, 0);
+        const totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + numVal(x.val), 0);
+        const totalOut = expenses.reduce((s, x) => s + numVal(x.val), 0);
         const lucroReal = totalIn - totalOut;
 
         let servicesPagos = services.filter(x => x.status === 'Pago').map(x => ({
