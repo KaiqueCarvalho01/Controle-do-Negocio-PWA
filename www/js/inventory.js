@@ -163,7 +163,7 @@ function adjustInventoryQty(id, delta) {
     const item = items.find(x => x.id === id);
     if (!item) return;
 
-    item.qty = Math.max(0, parseFloat(((item.qty || 0) + delta).toFixed(4)));
+    item.qty = Math.max(0, parseFloat(((numVal(item.qty) || 0) + delta).toFixed(4)));
     item.updatedAt = new Date().toISOString();
 
     dbSave('inventory', item, () => {

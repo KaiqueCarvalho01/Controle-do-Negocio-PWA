@@ -194,7 +194,7 @@ function gerarPdfServico(servico) {
         }
 
         // Linha destacada de Mão de Obra (se preenchida > 0)
-        const valorMaoDeObra = parseFloat(servico.labor) || 0;
+        const valorMaoDeObra = numVal(servico.labor) || 0;
         if (valorMaoDeObra > 0) {
             pdf.setFillColor(243, 248, 243);
             pdf.rect(30, currentY - 14, 535, 19, 'F');

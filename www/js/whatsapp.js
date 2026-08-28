@@ -36,7 +36,7 @@ function openWhatsApp(serviceItem) {
         });
     }
 
-    const valorMaoDeObra = parseFloat(serviceItem.labor) || 0;
+    const valorMaoDeObra = numVal(serviceItem.labor) || 0;
     if (valorMaoDeObra > 0) {
         itensTexto += `🛠️ *Mão de Obra / Serviço:* ${money(valorMaoDeObra)}\n`;
     }

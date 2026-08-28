@@ -6,7 +6,7 @@
  * Formata um valor numérico para a moeda brasileira (ex: 1500 -> R$ 1.500,00).
  * @param {number} v Valor numérico.
  */
-const money = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+const money = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numVal(v));
 
 /**
  * Retorna a data no formato 'YYYY-MM-DD' respeitando o fuso horário local do smartphone.

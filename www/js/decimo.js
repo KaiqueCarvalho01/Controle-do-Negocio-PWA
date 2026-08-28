@@ -9,9 +9,9 @@ function getDecimoConfig() {
     try {
         const allConfigs = getAllCaixaConfigs();
         return {
-            metaAnual: parseFloat(allConfigs.metaDecimoTerceiro) || 0,
+            metaAnual: numVal(allConfigs.metaDecimoTerceiro) || 0,
             modo: allConfigs.modoDecimo || 'aporte_gastos', // 'aporte_gastos', 'aporte_mensal' ou 'excedente_giro'
-            aporteMensal: parseFloat(allConfigs.aporteMensalDecimo) || 0
+            aporteMensal: numVal(allConfigs.aporteMensalDecimo) || 0
         };
     } catch (e) {
         return { metaAnual: 0, modo: 'aporte_gastos', aporteMensal: 0 };
@@ -131,7 +131,7 @@ function renderDecimoInfo() {
     toggleModoDecimoInputs(config.modo);
 
     const allConfigs = getAllCaixaConfigs();
-    const metaGiroGlobal = parseFloat(allConfigs.targetCapitalGiro) || 0;
+    const metaGiroGlobal = numVal(allConfigs.targetCapitalGiro) || 0;
 
     const allServices = window.appDataRaw?.services || [];
     const allExpenses = window.appDataRaw?.expenses || [];
@@ -154,7 +154,7 @@ function renderDecimoInfo() {
             return isAnoAtual && (isCatDecimo || isDescDecimo);
         });
 
-        atingidoDecimo = aportesDoAno.reduce((acc, e) => acc + (parseFloat(e.val) || 0), 0);
+        atingidoDecimo = aportesDoAno.reduce((acc, e) => acc + numVal(e.val), 0);
         if (config.metaAnual > 0) {
             percDecimo = Math.min(100, (atingidoDecimo / config.metaAnual) * 100).toFixed(1);
             faltaDecimo = Math.max(0, config.metaAnual - atingidoDecimo);

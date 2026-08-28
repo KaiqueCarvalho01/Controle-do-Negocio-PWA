@@ -15,7 +15,7 @@ function adicionarServicoNaAgenda(service) {
         let notes = 'Cliente: ' + service.client;
         if (service.phone) notes += '\nWhatsApp / Tel: ' + service.phone;
         if (service.desc) notes += '\nDetalhes: ' + service.desc;
-        if (service.val) notes += '\nValor: R$ ' + parseFloat(service.val).toFixed(2);
+        if (service.val) notes += '\nValor: R$ ' + numVal(service.val).toFixed(2);
 
         // Processa ano, mês, dia
         const [ano, mes, dia] = service.date.split('-').map(Number);
