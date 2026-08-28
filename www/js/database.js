@@ -51,6 +51,7 @@ function initDB(callback) {
 }
 
 function dbSave(storeName, item, callback) {
+    if (!db) { console.warn('[DB] Ainda não inicializado — dbSave ignorado.'); return; }
     let tx = db.transaction(storeName, 'readwrite');
     tx.objectStore(storeName).put(item);
     tx.oncomplete = () => {
@@ -59,6 +60,7 @@ function dbSave(storeName, item, callback) {
 }
 
 function dbDelete(storeName, id, callback) {
+    if (!db) { console.warn('[DB] Ainda não inicializado — dbDelete ignorado.'); return; }
     let tx = db.transaction(storeName, 'readwrite');
     tx.objectStore(storeName).delete(id);
     tx.oncomplete = () => {
@@ -67,6 +69,9 @@ function dbDelete(storeName, id, callback) {
 }
 
 function dbGetAll(callback) {
+    // Guarda essencial: pode ser chamado antes do initDB concluir (ex.: reagendar
+    // notificações no boot). Nunca lançar TypeError em cima de 'db' indefinido.
+    if (!db) { console.warn('[DB] Ainda não inicializado — dbGetAll ignorado.'); return; }
     let tx = db.transaction(['services', 'expenses', 'quickEntries', 'inventory'], 'readonly');
     let reqServices = tx.objectStore('services').getAll();
     let reqExpenses = tx.objectStore('expenses').getAll();
@@ -90,6 +95,7 @@ function dbGetAll(callback) {
  * @param {Function} [callback]
  */
 function dbSaveAll(data, callback) {
+    if (!db) { console.warn('[DB] Ainda não inicializado — dbSaveAll ignorado.'); return; }
     let tx = db.transaction(['services', 'expenses', 'quickEntries', 'inventory'], 'readwrite');
     let s = tx.objectStore('services');
     let e = tx.objectStore('expenses');
@@ -109,6 +115,7 @@ function dbSaveAll(data, callback) {
 // ==========================================
 
 function dbTrashPut(entry, callback) {
+    if (!db) { console.warn('[DB] Ainda não inicializado — dbTrashPut ignorado.'); return; }
     let tx = db.transaction('trash', 'readwrite');
     tx.objectStore('trash').put(entry);
     tx.oncomplete = () => {
@@ -117,6 +124,7 @@ function dbTrashPut(entry, callback) {
 }
 
 function dbTrashGetAll(callback) {
+    if (!db) { console.warn('[DB] Ainda não inicializado — dbTrashGetAll ignorado.'); return; }
     let tx = db.transaction('trash', 'readonly');
     let req = tx.objectStore('trash').getAll();
     tx.oncomplete = () => {
@@ -125,6 +133,7 @@ function dbTrashGetAll(callback) {
 }
 
 function dbTrashDelete(tid, callback) {
+    if (!db) { console.warn('[DB] Ainda não inicializado — dbTrashDelete ignorado.'); return; }
     let tx = db.transaction('trash', 'readwrite');
     tx.objectStore('trash').delete(tid);
     tx.oncomplete = () => {

@@ -62,7 +62,7 @@ function notificarNovaVersao() {
 document.addEventListener('DOMContentLoaded', () => {
     // Registra o Service Worker para funcionamento 100% offline
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
             .then(reg => {
                 console.log('[Service Worker] Ativo no escopo:', reg.scope);
                 // Verifica atualizações imediatamente
@@ -93,15 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
         checkAppLockStatus();
     }
 
-    // Notificações WEB (navegador/PWA) - fallback do plugin nativo do Cordova.
-    // No APK o fluxo nativo (initNotifications/deviceready) é quem assume.
-    if (typeof initWebNotifications === 'function') {
-        initWebNotifications();
-    }
-
     // Define a data de hoje por padrão em todos os inputs do tipo date
     document.querySelectorAll('input[type=date]').forEach(x => x.value = today);
-    
+
     // Popula o select de meses (ano atual e anterior)
     popularMeses();
 
@@ -111,6 +105,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Purga da lixeira: remove itens que já passaram dos 3 dias de retenção
         if (typeof limparLixeiraVencida === 'function') {
             limparLixeiraVencida();
+        }
+        // Notificações WEB (navegador/PWA) - fallback do plugin nativo do Cordova.
+        // SÓ após o banco estar pronto: reagendarServicosFuturos() lê o IndexedDB,
+        // e chamar antes fazia o boot abortar (db indefinido) sem nunca abrir o banco.
+        // No APK o fluxo nativo (initNotifications/deviceready) é quem assume.
+        try {
+            if (typeof initWebNotifications === 'function') {
+                initWebNotifications();
+            }
+        } catch (notifErr) {
+            console.warn('[Notificações] Falha ao inicializar (ignorado):', notifErr);
         }
         if (window.cordova) {
             document.addEventListener('deviceready', initNotifications, false);
