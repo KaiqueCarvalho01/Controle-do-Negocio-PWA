@@ -22,9 +22,13 @@ function getDecimoConfig() {
  * Salva as configurações do 13º Salário no armazenamento.
  */
 function saveDecimoConfig() {
+    if (!validarCampoValorMonetario(document.getElementById('inputMetaDecimo')) ||
+        !validarCampoValorMonetario(document.getElementById('inputAporteMensalDecimo'))) {
+        return;
+    }
     const modo = document.querySelector('input[name="modoDecimoRadio"]:checked')?.value || 'aporte_gastos';
-    let metaAnual = parseFloat(document.getElementById('inputMetaDecimo').value) || 0;
-    let aporteMensal = parseFloat(document.getElementById('inputAporteMensalDecimo')?.value) || 0;
+    let metaAnual = numVal(document.getElementById('inputMetaDecimo').value);
+    let aporteMensal = numVal(document.getElementById('inputAporteMensalDecimo')?.value);
 
     if (modo !== 'excedente_giro') {
         if (aporteMensal > 0 && metaAnual <= 0) {
@@ -243,16 +247,16 @@ function renderDecimoInfo() {
             if (s.status === 'Pago' && s.date) {
                 const m = s.date.substring(0, 7);
                 if (!monthlyData[m]) monthlyData[m] = { in: 0, out: 0 };
-                monthlyData[m].in += (s.val || 0);
-            }
+monthlyData[m].in += numVal(s.val);
+                }
         });
 
         allExpenses.forEach(e => {
             if (e.date) {
                 const m = e.date.substring(0, 7);
                 if (!monthlyData[m]) monthlyData[m] = { in: 0, out: 0 };
-                monthlyData[m].out += (e.val || 0);
-            }
+monthlyData[m].out += numVal(e.val);
+                }
         });
 
         let totalGiroAcumuladoEmpresa = 0;

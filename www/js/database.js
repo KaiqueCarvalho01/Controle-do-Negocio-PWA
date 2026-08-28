@@ -54,6 +54,27 @@ function dbGetAll(callback) {
     };
 }
 
+/**
+ * Grava todas as listas de uma vez (usado pela sanatização retrocompatível que
+ * corrige registros legados/corrompidos no carregamento).
+ * @param {{services?: Array, expenses?: Array, quickEntries?: Array, inventory?: Array}} data
+ * @param {Function} [callback]
+ */
+function dbSaveAll(data, callback) {
+    let tx = db.transaction(['services', 'expenses', 'quickEntries', 'inventory'], 'readwrite');
+    let s = tx.objectStore('services');
+    let e = tx.objectStore('expenses');
+    let q = tx.objectStore('quickEntries');
+    let i = tx.objectStore('inventory');
+    (data.services || []).forEach(it => s.put(it));
+    (data.expenses || []).forEach(it => e.put(it));
+    (data.quickEntries || []).forEach(it => q.put(it));
+    (data.inventory || []).forEach(it => i.put(it));
+    tx.oncomplete = () => {
+        if (callback) callback();
+    };
+}
+
 // ==========================================
 // LIXEIRA (store 'trash')
 // ==========================================

@@ -299,8 +299,8 @@ function gerarPdfExtrato() {
         const services = window.appDataFiltered.services || [];
         const expenses = window.appDataFiltered.expenses || [];
 
-        const totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + x.val, 0);
-        const totalOut = expenses.reduce((s, x) => s + x.val, 0);
+        const totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + numVal(x.val), 0);
+        const totalOut = expenses.reduce((s, x) => s + numVal(x.val), 0);
         const lucroReal = totalIn - totalOut;
 
         let servicesPagos = services.filter(x => x.status === 'Pago').map(x => ({

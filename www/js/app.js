@@ -182,6 +182,24 @@ function carregarDados(callback) {
         let expenses = data.expenses;
         let quick = data.quickEntries;
 
+        // Sanatização retrocompatível: converte 'val' em string/ausente de backups
+        // antigos ou dados legados para número, e persiste a correção automaticamente.
+        if (typeof normalizarRegistros === 'function') {
+            const rS = normalizarRegistros(services, normalizarServico);
+            const rE = normalizarRegistros(expenses, normalizarDespesa);
+            const rQ = normalizarRegistros(quick, normalizarLancamento);
+            const rI = normalizarRegistros(data.inventory, normalizarEstoque);
+            data.services = rS.list; data.expenses = rE.list;
+            data.quickEntries = rQ.list; data.inventory = rI.list;
+            services = data.services; expenses = data.expenses; quick = data.quickEntries;
+
+            if (rS.changed || rE.changed || rQ.changed || rI.changed) {
+                if (typeof dbSaveAll === 'function') {
+                    dbSaveAll({ services: data.services, expenses: data.expenses, quickEntries: data.quickEntries, inventory: data.inventory });
+                }
+            }
+        }
+
         // Identifica serviços agendados para a data de hoje que ainda não foram concluídos
         const servicosHoje = services.filter(x => x.date === today && x.status !== 'Pago');
         const banner = document.getElementById('todayBanner');
@@ -257,9 +275,9 @@ function calcularTotais() {
     let services = window.appDataFiltered.services;
     let expenses = window.appDataFiltered.expenses;
 
-    let totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + x.val, 0);
-    let totalPending = services.filter(x => x.status === 'Agendado' || x.status === 'Realizado').reduce((s, x) => s + x.val, 0);
-    let totalOut = expenses.reduce((s, x) => s + x.val, 0);
+    let totalIn = services.filter(x => x.status === 'Pago').reduce((s, x) => s + numVal(x.val), 0);
+    let totalPending = services.filter(x => x.status === 'Agendado' || x.status === 'Realizado').reduce((s, x) => s + numVal(x.val), 0);
+    let totalOut = expenses.reduce((s, x) => s + numVal(x.val), 0);
 
     document.getElementById('totalIn').textContent = money(totalIn);
     document.getElementById('totalPending').textContent = money(totalPending);

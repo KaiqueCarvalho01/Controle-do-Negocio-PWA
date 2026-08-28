@@ -314,7 +314,7 @@ function verificarNotificacoesAoIniciar() {
         // Filtra serviços já realizados mas ainda não pagos
         const pendentes = window.appDataRaw.services.filter(x => x.status === 'Realizado');
         if (pendentes.length > 0) {
-            const total = pendentes.reduce((s, x) => s + x.val, 0);
+            const total = pendentes.reduce((s, x) => s + numVal(x.val), 0);
             const titulo = '💰 Serviços Prontos a Cobrar!';
             const texto = `Você tem ${pendentes.length} serviço(s) realizado(s) aguardando pagamento (${money(total)}).`;
 

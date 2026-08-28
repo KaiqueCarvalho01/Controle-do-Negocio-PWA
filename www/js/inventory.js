@@ -90,13 +90,20 @@ function saveInventoryItem() {
     const idStr = document.getElementById('invItemId').value;
     const id = idStr ? parseInt(idStr) : Date.now();
 
+    if (!validarCampoValorMonetario(document.getElementById('invItemQty')) ||
+        !validarCampoValorMonetario(document.getElementById('invItemMinQty')) ||
+        !validarCampoValorMonetario(document.getElementById('invItemCost')) ||
+        !validarCampoValorMonetario(document.getElementById('invItemSale'))) {
+        return;
+    }
+
     const category = document.getElementById('invItemCategory').value.trim();
     const specs = document.getElementById('invItemSpecs').value.trim();
-    const qty = parseFloat(document.getElementById('invItemQty').value) || 0;
     const unit = document.getElementById('invItemUnit').value || 'un';
-    const minQty = parseFloat(document.getElementById('invItemMinQty').value) || 0;
-    const costPrice = parseFloat(document.getElementById('invItemCost').value) || 0;
-    const salePrice = parseFloat(document.getElementById('invItemSale').value) || 0;
+    const qty = numVal(document.getElementById('invItemQty').value);
+    const minQty = numVal(document.getElementById('invItemMinQty').value);
+    const costPrice = numVal(document.getElementById('invItemCost').value);
+    const salePrice = numVal(document.getElementById('invItemSale').value);
 
     const item = {
         id: id,
@@ -296,9 +303,9 @@ function renderInventoryList() {
  * @returns {number} Quantidade consumida na unidade do estoque.
  */
 function calcularConsumoItemEstoque(sItem, invItem) {
-    const sQty = parseFloat(sItem.qty) || 1;
-    const width = parseFloat(sItem.width) || 0;
-    const height = parseFloat(sItem.height) || 0;
+    const sQty = numVal(sItem.qty) || 1;
+    const width = numVal(sItem.width);
+    const height = numVal(sItem.height);
     const mUnit = sItem.mUnit || 'm';
 
     // Se o item de estoque for medido em metros lineares (m, cm, mm) ou m²
